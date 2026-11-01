@@ -1,0 +1,44 @@
+name: Launcher
+'on':
+  push:
+    branches: ['**']
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version=dev
+          if [ "$REF_TYPE" = tag ]; then version="$REF_NAME"; fi
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+      - env:
+          BUILD_VERSION: ${{ steps.version.outputs.version }}
+        run: make build VERSION="$BUILD_VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pmtool-${{ steps.version.outputs.version }}
+          path: dist/${{ steps.version.outputs.version }}/
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pmtool-${{ github.ref_name }}
+          path: release
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" release/* --verify-tag --generate-notes
