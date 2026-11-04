@@ -1,0 +1,477 @@
+# Підключення та реліз Puppet-модуля
+
+Launcher CI/provider: CLI → .sync.yml → provider з origin.
+Модульний .sync.yml містить template.use, optional ci.use/ci.provider; config.json — image/docker/socket.
+Токени лише через env. Деталі: docs ci.
+Налаштування читає launcher. ci_ref нижче показує лише optional CI override:
+
+```sh
+ci_ref='git.example.com/team/pipelines//ci/puppet-module.yml@v1.0.0'
+```
+
+Workflow і перевірки належать pmtool; image містить лише інструменти й залежності. Host Makefile і
+командна робоча копія не потрібні. Go-launcher автоматично підбирає параметри виконання/env. Один запуск працює з одним mounted clone; project береться з його origin. Виконуйте команди по одній; на помилці зупиніться.
+Для змісту: `docs onboarding --section list`; для одного розділу: `docs onboarding --section 'Підготовка'`. У терміналі текст форматований, перенаправлення stdout зберігає Markdown.
+Повний перелік CLI-параметрів та mount-профілі — у [USAGE.md](USAGE.md).
+
+## Приватні template-репозиторії
+
+Для приватного template задайте окремий read-only repository token у змінній
+`TOOLING_TEMPLATE_TOKEN` через менеджер секретів, а його host — окремо:
+
+```sh
+export TOOLING_TEMPLATE_TOKEN_HOST='git.example.com'
+pmtool sync
+```
+
+Токен уже має бути в environment. Не записуйте його у `.sync.yml`, `config.json`
+чи аргументи команд. `GITLAB_TOKEN`/`GITHUB_TOKEN` модуля не використовуються як
+заміна. Опційний `TOOLING_TEMPLATE_USERNAME` задає HTTPS/deploy-token username;
+типове значення — `oauth2`.
+
+Launcher catalog permission `template_token` дозволяє передачу лише для `sync`, `sync-noop`,
+`audit`, `check` та їхніх aliases. Launcher передає змінні за назвою лише для
+template на погодженому host. Інші host працюють анонімно. Settings, документація,
+PDK/VoxBox-only та API/release-команди не отримують ці credentials. Для нової
+permission оновлюйте launcher; upstream image не містить command catalog.
+
+Git helper перевіряє HTTPS, точний host і repository path, не зберігає токен та
+забороняє редиректи. Credentials не передаються в environment ERB/audit-скриптів.
+Шаблон залишається довіреним виконуваним кодом. Доступ до CI includes налаштовується
+окремо у GitLab/GitHub; цей токен не вставляється в YAML. Версія шаблону має бути
+опублікована до її вибору. Докладніше: `pmtool docs templates`.
+
+
+## Перед початком роботи з ШІ
+
+`pmtool ai export --format prompt` друкує інструкції для нового чату.
+Для інструкцій у репі використайте `ai export --output ./AGENTS.md`; для переносимого
+skill — `ai export --format skill --output ./puppet-module-workflow/SKILL.md`.
+Наявний файл не перезаписується: спочатку експортуйте в інше місце й погодьте з
+наявними правилами репи. Експорт не встановлює skill і не дає дозволу на push/реліз.
+Інструкції й перелік команд відповідають встановленому pmtool; після його оновлення
+потрібно переглянути й оновити експорт. Конфіг модуля та секрети в нього не включаються.
+
+## Запуск через launcher
+
+Із каталогу модуля всі наступні runtime-команди можна запускати через Go-бінарник:
+
+```sh
+pmtool config init
+pmtool policy-noop
+pmtool audit
+pmtool pdk
+pmtool release-prepare --version X.Y.Z
+```
+
+Виконуйте лише відповідний поточному кроку виклик. Launcher виконує Git/API у Go,
+а інструментальні перевірки — в офіційних PDK/VoxBox без Docker socket і provider tokens.
+Параметри операції передавайте після команди launcher-а.
+За потреби іншого clone додайте `--module /absolute/clone`. Не копіюйте Docker flags
+в аргументи launcher-а. Його конфіг/інсталяція: `pmtool docs launcher`.
+Усі операції модуля виконує pmtool; VoxBox надає лише інструменти.
+
+## 1. Підготовка
+
+Замініть placeholders: погоджений image за SHA/digest, фізичний шлях звичайного clone,
+версію майбутнього релізу. Не використовуйте zsh-змінні
+`modules`, `path` або `status`. Працюйте з фізичним каталогом звичайного clone, без вкладених Docker-контейнерів.
+
+```sh
+export TOOLING_IMAGE='ghcr.io/voxpupuli/voxbox:10.1.0-openvox8@sha256:01bb8ce5e24d5b111934660f75e2786b4d7c7adcaa7518a564856d1d3041d10d'
+module_dir=/absolute/path/to/puppet-example
+```
+
+Налаштуйте Docker/registry access, selected provider token та права на потрібні module projects.
+GitLab/GitHub project та API host визначаються з origin цього clone. Немає namespace
+config, inventory або окремого cache. Можна одночасно працювати з модулями різних команд.
+Для нестандартного API URL передайте `GITLAB_BASE_URL` лише цьому запуску; host має
+відповідати origin. CI задається через `--ci 'repo/path@version'` або модульний `.sync.yml ci`.
+GitHub/Enterprise та permissions: [CI providers](CI-PROVIDERS.md), `docs ci`.
+Raw Docker приклади цього документа — для GitLab; launcher сам обирає провайдера і токен.
+CI не обирає шаблон: чинний module profile не змінено.
+
+```sh
+export GITLAB_TOKEN='...'
+export GIT_AUTHOR_NAME="$(git config --get user.name)"
+export GIT_AUTHOR_EMAIL="$(git config --get user.email)"
+```
+
+Не додавайте token у YAML, Git або URL. Host global Git config не монтується;
+передавайте author тільки командам, які створюють commit/tag. Перевірте origin,
+поточну гілку та локальні незакомічені зміни до prepare.
+
+## 2. Політики module project
+
+Спочатку preview, потім застосування політик:
+
+```sh
+pmtool policy-noop
+```
+
+```sh
+pmtool policy
+```
+
+Очікується default `main`, заборона прямого push у main та захист release tags.
+Не створюйте main довільно від bootstrap-змін. `policy-delete-master` — окрема
+погоджена дія після міграції. Шлях central include залишається `ci/puppet-module.yml`
+у CI-репі; module pipelines повинні мати до нього доступ і відповідні runner tags.
+
+## 3. Bootstrap-гілка
+
+Для чистого clone створіть bootstrap-гілку через tooling:
+
+```sh
+pmtool bootstrap-prepare --branch bootstrap/shared-contracts
+```
+
+Це fetch/sync main та створення гілки, без metadata, commit/push, MR або tests.
+Prepare не повторюють на вже створеній гілці. Dirty clone або стороння ancestry
+потребують розбору; tooling не виконує reset/stash.
+
+## 4. PDK convert для legacy-модуля
+
+Якщо PDK-каркас уже коректний, пропустіть convert, але перевірте metadata/fixtures.
+Інакше спочатку preview, перегляд `convert_report.txt`, потім apply:
+
+```sh
+pmtool pdk-convert-noop
+```
+
+```sh
+pmtool pdk-convert
+```
+
+Preview може записати report. Apply використовує `--force` без повторного запиту.
+До apply збережіть потрібні customizations. Convert не створює commit і не запускає tests.
+Виправте PDK defaults `username-workspace`, версію, author, summary, license, source,
+dependencies та підтримувані OS. Не заявляйте підтримку неперевірених версій ОС.
+Fixtures мають відповідати dependencies; specs повинні використовувати справжній клас
+модуля, а не згенерований namespace `workspace`.
+
+## 5. Detachment та baseline
+
+Після перевірки metadata/fixtures від’єднайте PDK template:
+
+```sh
+pmtool migrate
+```
+
+Після migrate одразу виконайте sync із writable mount. Sync-noop доступний
+як опційний readonly preview:
+
+```sh
+pmtool sync --ci "$ci_ref"
+```
+
+При відмінних існуючих файлах tooling відмовляє. Перегляньте diff, перенесіть
+потрібні RSpec customizations у `spec/spec_helper_local.rb` і повторіть sync
+з `--files '.gitignore spec/spec_helper.rb'` лише для погоджених замін.
+Окремий sync-noop з цим allowlist можна виконати за потреби. Наявні metadata, fixtures та domain code baseline не генерує.
+Не видаляйте керовані файли вручну для обходу конфліктів.
+
+## 6. Доменні контракти
+
+Основні класи зазвичай розділяють repo → install → config → service. Defaults живуть
+у Hiera модуля; доменні параметри посилаються на згенеровані typed contracts.
+Не додавайте `lookup()` у кожен параметр замість automatic parameter lookup.
+Явно задавайте merge policy для nested Hash/Array; перевіряйте, що списки не отримують
+зайві default елементи при deep merge. Package install не повинен випереджати
+створення ключа, repository та apt cache update. Перевірте managed/unmanaged repo,
+зміну signing key на першому проході, hold/unhold і поведінку сервісу при видаленні пакета.
+
+Package та Service structs передаються в ресурси явними полями; наявність alias
+сама по собі не означає використання. Filesource має доходити до доменних параметрів,
+repository definition — реально оголошуватись, якщо вони входять до обраного шаблону.
+Вибір контрактів і правил аудиту належить `template.yml` шаблону; у модулі задайте
+`template.use` у `.sync.yml` перед sync. Дивіться [формат шаблону](TEMPLATES.md).
+
+File content/source мають бути взаємовиключними; валідуйте імена перед додаванням
+до filesystem path. Не керуйте пакетними файлами/каталогами без доменної потреби.
+Права, `show_diff` для секретів, notify/restart і поведінку unmanaged файлів перевіряйте
+окремо. AST audit не доводить data flow або runtime поведінку.
+
+### HTTPS signing keys і architecture
+
+Для HTTP(S) key_source спільний repository використовує відкладений SHA256 від
+agent-side `<module>::repository_key_checksum`, а не Last-Modified. Перевірте
+зміну джерела на старіший за датою ключ, redirects і повторний незмінний apply.
+Відсутність checksum headers у Pulp/GCS не повинна залишати попередній vendor key.
+Функція та її spec генеруються в namespace модуля і належать repository group.
+
+`architecture` — опційний рядок у repository settings. Для репозиторію лише з
+`Architectures: all` використовуйте `architecture: all`; без поля зберігаються APT
+defaults. Усі інші package/repo fields лишаються сумісними. Перевірте suite/component
+в опублікованому Release: upstream flat layout і layout Pulp mirror можуть відрізнятися.
+
+## 7. Local audit, потім PDK
+
+```sh
+pmtool audit --ci "$ci_ref"
+```
+
+```sh
+pmtool pdk
+```
+
+Audit включає metadata/changelog, tracked ignored files, baseline drift, contract usage
+та specs для кожного класу, defined type, function, type alias, Ruby fact/type/provider/helper, task і plan.
+У CHANGELOG має бути `## Release VERSION` для поточної metadata. Generated lock,
+fixtures і bin, які вже tracked та ignored, потрібно зняти з tracking після review.
+PDK запускає validation і unit; на помилці виправте код і повторіть той самий command.
+Тести мають перевіряти поведінку, а не лише existence файлів чи aliases.
+
+Для кожної нової сутності додайте відповідний spec; загальні вимоги описані в
+[Domain audit and tests](USAGE.md#domain-audit-and-tests).
+Наприклад, `sample::install` потребує `spec/classes/install_spec.rb`, а custom provider
+`lib/puppet/provider/service/cli.rb` — `spec/unit/provider/service/cli_spec.rb`.
+Empty/pending-only specs не проходять audit; shared examples дозволені.
+
+Обидва runners вимагають **100% resource coverage**, без pending/skipped examples.
+Для `Untouched resources` додайте змістовні resource matchers з параметрами та ordering;
+окремо перевірте негативні, absent і unmanaged сценарії. Не знижуйте поріг, не додавайте
+coverage filters і не замінюйте assertions на завжди позитивні. Цей показник стосується
+ресурсів у протестованих каталогах, а не всіх можливих входів чи Ruby line/branch coverage.
+
+Після оновлення image на робочій гілці запустіть sync (sync-noop опційний):
+обов’язкові inventory та coverage helpers, оновлений `spec_helper.rb`, Repo/ManagedRepo specs.
+Поки audit, PDK і VoxBox не зелені за новою policy, не переходьте до commit/release.
+
+## 8. Bootstrap commit та push
+
+Після зеленого check одразу створіть локальний bootstrap-комміт:
+
+```sh
+pmtool bootstrap-commit
+```
+
+Bootstrap-commit створює локальний комміт погоджених module changes без push.
+Bootstrap-commit-noop доступний як опційний перегляд складу комміту та diff. `--files` опційний; сторонні зміни не додавайте.
+Після успішного комміту одразу виконайте remote push:
+
+```sh
+pmtool bootstrap-push
+```
+
+`bootstrap-push-noop` можна використати за потреби для діагностики remote push;
+це опційний крок, який не гарантує проходження server hooks. Push не створює MR і не
+запускає локальні тести. Не підміняйте bootstrap/release lifecycle ручним Git, коли
+потрібна дія вже має container command.
+
+## 9. MR та merge
+
+```sh
+pmtool mr --branch bootstrap/shared-contracts    --title '[UPD] Bootstrap shared module contracts'
+```
+
+mr створює або знаходить один opened MR цієї гілки в main, чекає CI його SHA
+кожні 5 секунд, мерджить лише той SHA та запускає guarded main-sync.
+Після успіху clone вже на актуальному main. Socket і commit author не потрібні.
+
+Зміна head, failed/canceled/skipped/manual, missing pipeline або API error
+зупиняють merge. Якщо CI ще не встановлений, виправте bootstrap/include; не
+створюйте main із тієї ж гілки для приховування порожнього/конфліктного MR.
+Невдалий merge не запускає sync. Якщо merge пройшов, але local sync впав,
+виправте локальний стан і повторіть лише main-sync; MR уже merged. Немає reset/stash.
+
+Окремі mr-create, mr-merge та pipeline-jobs залишаються для діагностики або
+навмисно розділеного workflow. Окремий watcher у стандартному флоу не потрібний.
+
+## 10. Після bootstrap merge
+
+Після mr одразу виконайте check. Main-sync окремо потрібний лише після standalone
+mr-merge або для recovery після невдалого local sync.
+Перший крок check — audit — уже перевіряє baseline цього clone. Окремі sync-noop
+і sync після merge не потрібні, якщо baseline збігається.
+Якщо audit виявив baseline drift, створіть окрему робочу гілку та виконайте sync.
+У разі конфлікту перегляньте diff і повторіть sync з погодженими --files. Потім check, commit/push та MR. Не застосовуйте
+непереглянуті зміни прямо на main; check сам не змінює файли чи гілку.
+
+Повна перевірка цього ж clone:
+
+```sh
+pmtool check --ci "$ci_ref"
+```
+
+## 11. Підготовка нового релізу
+
+Для вже підключеного модуля починайте тут. Після перевірки чистоти local clone:
+
+```sh
+pmtool release-prepare --version X.Y.Z
+```
+
+Замініть X.Y.Z погодженою новою версією, вищою за remote main metadata. Редагуйте
+domain code, metadata version, changelog та міграційні приклади на release-гілці.
+Для першого bootstrap-релізу, де потрібна metadata вже merged, не створюйте штучний
+version bump: після перевірки final main переходьте до main-sync та tag.
+
+Запустіть check. Після успіху — release-submit: локальний комміт і push гілки.
+Файли обираються автоматично, `--files` необов’язковий.
+
+```sh
+pmtool release-submit
+```
+
+Далі mr створює/знаходить MR, чекає CI, мерджить і синхронізує main.
+Окремі release-commit/release-push та їхні noop лишаються доступними за потреби.
+Якщо push після комміту впав, повторіть лише release-push; локальний комміт збережено.
+
+## 12. Main, tag та publication
+
+Після mr main уже синхронізовано — одразу check, як у кроці 10.
+Окрема main-sync потрібна лише після standalone mr-merge або для recovery:
+
+```sh
+pmtool main-sync
+```
+
+Main-sync відхиляє dirty/divergent/unfinished Git state, не робить reset/stash
+і не відкидає локальні комміти. Після sync — check. Audit у check уже звіряє
+baseline: sync потрібний лише при drift на робочій гілці з reviewed --files.
+
+Після зеленого check на main виконайте release-tag:
+
+```sh
+pmtool release-tag
+```
+
+Команда чекає green main для зафіксованого SHA, перевіряє guards, створює/push
+annotated tag, потім чекає tag pipeline та успішний forge-publish. На появу
+pipeline — до 60 секунд; після discovery фіксуються ref/SHA/ID. Перевірка кожні
+5 секунд із WAIT. Інші активні pipelines блокують тег; local/remote main/tag
+перевіряються до push, CI — повторно. Старі теги не перезаписуються.
+
+Release-tag-noop — опційний preview до mutation; він не пушить тег і не чекає
+publication. Failed/canceled/skipped/manual/missing CI та API errors зупиняють
+команду. Ctrl-C до mutation не створює тег; після push тег зберігається.
+
+Якщо publication впала або очікування перервано після push, тег не створюють
+повторно. Перевірте існуючий pipeline, за потреби повторіть CI job у GitLab:
+
+```sh
+pmtool pipeline-jobs --ref vX.Y.Z --watch 5
+```
+
+На успішному шляху watcher окремо не запускається. Після publication перевірте
+Forge module/version/artifact та встановлення на canary-host. Green unit/MR або
+лише push тегу не доводять публікацію. Cleanup — окрема погоджена дія.
+
+## Cleanup after publication
+
+After the tag pipeline has published the module and Forge/canary checks have succeeded,
+return to a clean, synchronized `main`. Select one completed branch explicitly:
+
+```sh
+pmtool cleanup-noop --branch release/1.2.3
+pmtool cleanup --branch release/1.2.3
+```
+
+For an initial conversion, use its actual `bootstrap/<name>` branch instead. The
+release version is read from the branch commit's metadata, never from the checkout
+name or the latest version on main. There is no bulk deletion or implicit branch.
+
+Preview performs read-only Git/API checks without fetching, pruning, switching
+branches or deleting refs. Apply repeats the checks, then removes the selected
+remote branch (if present), its local branch and its stale `origin/...` ref.
+Unrelated branches, commits, tags and Forge releases are preserved. Already-clean
+branches return an explicit success message after verifying the release evidence.
+
+Both commands require the selected provider token and an ordinary clone, without a Docker socket
+or commit author. Preview mounts the clone read-only; apply uses a writable mount. Guards require clean main equal to remote main, no unfinished
+Git operation or checkout of the selected branch in another worktree, consistent
+local/remote/tracking tips, no open MR, a matching merged MR into main, an annotated
+remote release tag containing both the branch tip and merge commit, that tag in main,
+and a successful tag pipeline with successful `forge-publish`. Protected remote
+branches are refused. Squashed/rebased histories whose original branch tip is not
+an ancestor of the tag are refused rather than force-deleted.
+
+Remote deletion uses an exact-SHA lease, local branch deletion uses Git's merged
+branch guard, and stale tracking deletion compares the expected SHA. A concurrent
+change aborts cleanup. A failure after one deletion may leave partial cleanup;
+inspect the output and rerun preview. Cleanup never runs automatically during merge,
+main synchronization, tagging or a new release preparation. An open or unpublished
+release, including its branch, must remain intact.
+
+## Next-step guidance
+
+Runtime commands end with a yellow `[NEXT]` message on stderr. The message suggests
+a command or a review operation; it never executes it. Successful previews request
+review before apply. Checks distinguish main, dirty bootstrap/release branches and
+clean commits; local remote-tracking refs help distinguish pushed commits without
+adding an API request. These refs may be stale: existing push/MR/tag guards remain
+authoritative. Unrecognized or detached branches receive a review instruction.
+
+A plain pipeline status query can exit successfully while jobs are still running.
+Its next step is therefore conditional on successful required jobs for the current
+SHA. A successful watcher may suggest guarded merge/tag directly, but those commands
+still recheck CI. Tag completion requests Forge/canary verification before cleanup.
+Failure hints request fixing the reported problem and retrying the current command,
+preserving relevant branch/version/ref/files/title options and shell quoting.
+
+Arguments containing spaces or shell metacharacters use readable single quotes, for example `--title '[REL] Release 3.0.3'`. Embedded apostrophes use adjacent quoted segments (`'O'"'"'Reilly'`) so copying preserves the exact argument without shell expansion. Safe paths and options remain unquoted.
+
+The displayed executable name is `pmtool`; substitute your installed
+binary path if it is not on PATH. Explicit module paths and per-module CI project
+options are retained. Hints contain no API tokens, perform no network requests or
+Git mutations, and do not change exit codes or resource permissions. They do not
+record workflow progress or prove prior checks/publication. Manifest JSON is hint-free;
+documentation stdout and AI exports retain their raw format. The Go launcher's own
+local config/version/export commands remain separate from runtime workflow guidance.
+
+## Module template selection
+
+The launcher and container are separate repositories. Teams publish their own
+template packages on compatible Git hosts. The container has no bundled team
+template. The repository/version below is illustrative:
+
+```yaml
+template:
+  use: 'git.example.com/team/puppet-template@v1.0.0'
+```
+
+CI priority: **CLI --ci → module .sync.yml ci.use → selected template.yml ci**.
+The template's CI is pinned to the same resolved commit SHA as its files and audit
+policy. Provider priority remains CLI --provider → ci.provider → module origin.
+Use --template for an invocation-specific template override. Host config.json
+contains image/docker/socket only. The offline settings query reads module YAML
+without tokens, socket, template fetching or evaluation; the actual operation
+loads the selected package and resolves its default CI.
+
+The template manifest declares provider-specific entrypoints:
+
+```yaml
+ci:
+  gitlab: ci/puppet-module.yml
+  github: .github/workflows/puppet-module.yml
+```
+
+GitLab modules use a project include on the same server, or an anonymous HTTPS
+remote include for public GitHub templates, pinned to the selected SHA. GitHub
+modules use the reusable workflow on the same GitHub server. Other cross-server
+combinations fail explicitly; select compatible CI with --ci or ci.use.
+Missing template CI for the selected provider fails unless CI is explicitly supplied.
+
+The selected template owns contracts, generated files and audit scripts. A team
+may require executable-entity specs and 100% resource coverage through its policy. Contract
+switches are accepted only when that template enables allow_contract_overrides.
+There is no implicit template, no bundled team selector and no team policy in the
+hosting adapters. External templates support anonymous or separately authenticated HTTPS; see [private template access](TEMPLATES.md#private-template-repositories).
+
+Commit .sync.yml and .sync.lock.json with the module. Review sync conflicts before
+retrying with approved --files paths. The inventory records resolved revision and
+generated hashes; unchanged retired files can be removed, modified files require
+review, unowned domain files are preserved. Templates contain trusted ERB/scripts.
+A version tag can move; a full SHA is immutable. Read `docs templates` for the schema.
+
+## Template engine boundary
+
+Template checkout, authentication, CI selection, sync, ownership and general audit
+run in Go. Settings and validation planning do not start Ruby. ERB and template-owned
+Puppet/RSpec checks use the selected tools image. Existing ERB context and generated
+module-side profile files are preserved.
+
+Template tests use `PMTOOL_TEMPLATE_FIXTURE` JSON through `pmtool template-test`.
+They do not import launcher source or require a bundled Ruby workflow engine.
+See [template-test interface](TEMPLATES.md#engine-and-template-test-interface).

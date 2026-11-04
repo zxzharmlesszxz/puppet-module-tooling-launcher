@@ -1,0 +1,393 @@
+{
+  "protocol": 1,
+  "options": [
+    "stage",
+    "module",
+    "branch",
+    "ref",
+    "title",
+    "watch",
+    "file",
+    "files",
+    "version",
+    "pdk-image",
+    "voxbox-image",
+    "section",
+    "color",
+    "ci",
+    "provider",
+    "template",
+    "host-module",
+    "ci-project"
+  ],
+  "commands": {
+    "migrate": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "sync": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": true
+    },
+    "sync-noop": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": true
+    },
+    "audit": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": true
+    },
+    "status": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "diff": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "settings": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "bootstrap-prepare": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "main-sync": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "release-prepare": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "bootstrap-commit": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": true,
+      "template_token": false
+    },
+    "bootstrap-commit-noop": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": true,
+      "template_token": false
+    },
+    "release-submit": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": true,
+      "template_token": false
+    },
+    "release-commit": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": true,
+      "template_token": false
+    },
+    "release-commit-noop": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": true,
+      "template_token": false
+    },
+    "bootstrap-push": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "bootstrap-push-noop": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "release-push": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "release-push-noop": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "release-tag": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": true,
+      "template_token": false
+    },
+    "release-tag-noop": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": true,
+      "template_token": false
+    },
+    "cleanup": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "cleanup-noop": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "mr": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "mr-create": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "mr-merge": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "pipeline-jobs": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "policy": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "policy-noop": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "policy-delete-master": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "pdk": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "pdk-convert": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "pdk-convert-noop": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "voxbox": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "release-checks": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "check": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": true
+    },
+    "bootstrap-local": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": true
+    },
+    "bootstrap-local-noop": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": true
+    },
+    "audit-local": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": true
+    },
+    "pdk-local": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "pdk-convert-local": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "pdk-convert-local-noop": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "help": {
+      "module": false,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "docs": {
+      "module": false,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "manifest": {
+      "module": false,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "template-test": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    }
+  }
+}

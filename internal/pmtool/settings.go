@@ -1,0 +1,33 @@
+package pmtool
+
+import (
+	"strings"
+
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/hostflow"
+)
+
+type workflowSettings struct {
+	CI       string `json:"ci"`
+	Provider string `json:"provider"`
+	Template string `json:"template"`
+}
+
+func (a *app) resolveWorkflowSettings(module string, cli workflowSettings) workflowSettings {
+	selected := must(hostflow.ReadSettings(module, hostflow.Settings{CI: cli.CI, Provider: cli.Provider, Template: cli.Template}))
+	if selected.Provider == "" {
+		origin, err := a.driver.capture("git", []string{"-C", module, "remote", "get-url", "origin"})
+		if err != nil {
+			fail("cannot read origin from module: %v", err)
+		}
+		_, provider, err := hostflow.OriginContext(strings.TrimSpace(string(origin)), "")
+		check(err)
+		selected.Provider = provider
+	}
+	if strings.ContainsAny(selected.CI, "\r\n") {
+		fail("CI reference must be a single line")
+	}
+	if selected.Provider != "gitlab" && selected.Provider != "github" {
+		fail("provider must be gitlab or github")
+	}
+	return workflowSettings{selected.CI, selected.Provider, selected.Template}
+}

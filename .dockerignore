@@ -1,0 +1,5 @@
+**
+!Dockerfile.checks
+!.dockerignore
+!go.mod
+!go.sum
