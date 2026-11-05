@@ -7,6 +7,7 @@ Go validation plans, process execution, output, AI export and completion.
 internal/hostflow owns Git, REST providers, release operations and their regressions.
 internal/templatekit owns template checkout/authentication, schema and policy loading,
 CI selection, baseline rendering requests, sync, ownership and general audit.
+internal/scaffold owns neutral starter assets and provider-specific CI generation.
 internal/workflow contains only the embedded command catalog. docs contains the
 embedded manuals and assistant guidance; test contains Make target regressions.
 
@@ -19,15 +20,17 @@ The launcher contains no second workflow implementation.
 ## Runtime boundary
 
 Settings and validation sequences are constructed in Go. Git/API commands bypass
-Docker and image configuration. Template checkout runs host Git with immutable
-refs and explicit host/repository-scoped credentials; temporary files are removed
+Docker and image configuration. Template checkout runs host Git with version tags or full commit SHAs and
+explicit host/repository-scoped credentials; the resolved SHA is recorded, but
+a version tag itself can move; temporary files are removed
 on success and failure. Sync and general audit execute in Go on the selected clone.
 
 The small ERB worker receives JSON documents through stdin and returns JSON strings.
 It only requires Ruby's JSON and ERB libraries. The Docker executor runs it in the
 pinned tools image with a read-only root, no network and no host source mount.
-Template-owned audit scripts receive a read-only module mount and the required
-Ruby or VoxBox bundle, without provider/template credentials or a Docker socket.
+In Docker mode, template-owned audit scripts receive a read-only module mount
+and the required Ruby or VoxBox bundle, without provider/template credentials
+or a Docker socket.
 Native CI uses installed job tools directly and is not a filesystem sandbox.
 
 The remaining Ruby assets are the ERB worker and the standalone contract-profile
@@ -40,13 +43,23 @@ PDK/VoxBox are started directly through the host Docker CLI. Go preserves child
 exit codes, runs checks in order and stops at the first failure. There is no Ruby
 planner, settings RPC, archived helper bundle or old engine retained for tests.
 
+## Documentation checks
+
+Embedded docs are checked against every catalog command/option, including aliases.
+Documented pmtool docs --section examples must resolve locally to a unique section.
+Link/anchor checks are separate from content/behavior review. A green launcher test
+suite does not prove team CI or a skipped external template integration passed.
+Generated starter CI must declare every secret forwarded by the engine caller and
+publish a newline-terminated GITHUB_PATH entry; regressions exercise both contracts.
+Formatting targets recurse through cmd/internal/docs, including internal/scaffold.
+
 ## Checks
 
 ```sh
 make format
 make check
 make full-check
-make build VERSION=v1.0.0
+make build VERSION=v1.1.0
 ```
 
 Go checks include format, vet, golangci-lint, coverage threshold, race tests,
@@ -59,62 +72,118 @@ a sibling environment checkout or a custom runtime image.
 
 Cross-builds copy the preloaded Go modules into a private writable temporary
 cache. Builds stay offline under the invoking UID/GID and preserve the image-owned
-cache. Use `make build VERSION=v1.0.0` to verify a release; plain `make build`
+cache. Use `make build VERSION=v1.1.0` to verify a release; plain `make build`
 intentionally produces `dev` artifacts.
 
 Release regression tests use temporary local bare Git remotes and a fake gh.
-Workflow tests must never perform real GitLab/GitHub publication. Verify origin
-parsing, private template host boundaries, exact refs/SHA, key/cache ordering,
+Workflow tests must never perform real GitLab/GitHub publication. Verify configured
+origin reads with real local/included Git URL rewrites and both providers. Cover
+stored-credential rejection even when a rewrite conceals those credentials, ambiguous
+URLs, unchanged-origin guards and changed-origin refusal. Template Git must refuse
+HTTP authentication noninteractively without caller askpass programs or a platform
+specific executable. Also verify origin parsing, private template host boundaries,
+exact refs/SHA, key/cache ordering,
 literal argv, no socket, per-step token/author scope and partial-failure recovery.
 Keep raw Markdown tables aligned and regenerate/review assistant exports after changes.
 
 ## Versions and source publication
 
 Launcher, environment, template and module versions are independent. There is no
-VERSION file; source releases use Git tags and the latest Release X.Y.Z changelog.
-CI uses pinned upstream VoxBox by default, with TOOLING_IMAGE as an optional
-explicit override. Launcher publication does not depend on publishing an image.
+VERSION file. These Make targets operate on this launcher's GitHub source clone;
+Puppet modules use pmtool's separate module workflow. Host Git/GitHub CLI are
+required; build/test tools still run in their existing containers. Authentication
+uses Git/GitHub CLI configuration, never tokens embedded in Make arguments.
 
-Commit reviewed implementation changes first, keeping their changelog entries
-under `## Unreleased`. Make the release preparation a separate commit: finalize
-the heading as `## Release X.Y.Z` and commit only that preparation diff with
-`chore(release): prepare vX.Y.Z`. For the first release use `1.0.0`; do not add a
-VERSION file or combine unrelated implementation changes into this commit.
-
-After both local commits, publish the prepared clean main commit and test its
-CI artifacts before creating a stable tag. A preparation commit changes the SHA,
-so artifacts verified before it cannot satisfy the final commit's artifact gate:
-
-```sh
-make push-main
+```text
+release-prepare → edit → check → release-submit → mr → review CI binary → push-release
 ```
 
-The target pushes only main, waits for the exact-SHA push workflow, downloads its
-`pmtool-dev-<full SHA>` artifact and verifies its checksums, full MIT license,
-source/run identity and native binary version/help. Files remain in `dist/ci/<SHA>/`.
-CI_ARTIFACT_ROOT defaults to dist/ci. Use that downloaded binary with your team
-template/module. Branch pushes never
-create GitHub Releases or prereleases. The standalone `make ci-artifacts` retries
-download/verification without another push; existing different bytes are preserved
-and rejected. Failed download, invalid manifests, symlinks, wrong version/run/SHA,
-changed main and tampered files stop verification.
-
-After that review, publish the stable release:
-
 ```sh
-make push-release VERSION=v1.0.0
+make release-prepare VERSION=v1.2.3
+make check
+make release-submit VERSION=v1.2.3 MESSAGE='Describe the implementation'
+make mr VERSION=v1.2.3
 ```
 
-This requires verified artifacts of the current committed clean main and exact
-origin/main, then runs local preflight and creates/pushes an annotated stable tag.
-It does not push main or silently fetch a fresh candidate. Direct release-tag and
-push-release-tag targets require the same artifact checks. Tag CI verifies current
-main and its successful commit workflow before building. Publication first creates
-a GitHub draft and makes it public only after asset uploads succeed; no rc.N release
-lane is involved. After an interrupted tag push/publication, preserve the tag,
-inspect/retry the failed workflow and resume push-release-tag for the identical tag.
-Build/check/clean never publish. clean also removes local CI artifacts; download
-and verify them again before tagging. The user retains all publication actions.
+Prepare requires an ordinary committed clone and clean worktree, synchronizes main
+without reset/stash, verifies that the new canonical version exceeds main's latest
+changelog release, rejects existing local/remote branch or tag names, then creates
+`release/1.2.3`. Do not repeat it on an edited release branch. Optional
+`release-prepare-noop` previews from already synchronized clean main.
+
+Put implementation notes under `## Unreleased`. Submit automatically stages the
+reviewed source files, commits with MESSAGE, then creates a separate
+`chore(release): prepare v1.2.3` commit whose only change is finalizing that heading
+to `## Release 1.2.3`. It pushes the branch with tag following disabled. VERSION
+must match the branch. Existing tags are never reused. Same-version corrective
+commits on an unmerged branch are supported; already finalized notes do not create
+empty preparation commits. `release-submit-noop` shows selection/diff without
+staging, commits, heading changes or pushes. Optional release-push-noop and
+release-tag-noop preview their respective operations with the normal guards.
+
+Individual operations remain available:
+
+```sh
+make release-commit VERSION=v1.2.3 MESSAGE='Describe the implementation'
+make release-finalize VERSION=v1.2.3
+make release-push VERSION=v1.2.3
+```
+
+Failures preserve commits and staging. After push failure, retry release-push or
+release-submit; they do not recreate the reviewed commits. A signing failure during
+finalization leaves the prepared changelog for inspection; complete that commit
+explicitly before resubmitting. These targets never force-push a branch.
+
+`mr` creates/reuses one open PR into main, takes its body from the release notes,
+waits for the push workflow of the pinned source SHA, rechecks local and PR state,
+and merges with GitHub CLI's `--match-head-commit` guard. It then runs main-sync
+and ci-artifacts. Failed CI, changed PR SHA/base/branch, local drift, API errors or
+ambiguous PRs stop the operation. If main synchronization fails after merge,
+preserve the merge and retry `make main-sync`, followed by `make ci-artifacts`.
+No branch deletion, tag push or publication is implicit in mr.
+
+`main-sync` permits only clean work whose HEAD and local main are ancestors of
+origin/main. It fetches and fast-forwards; unmerged commits or divergence require
+explicit reconciliation. It never resets, stashes or discards work.
+
+Read source CI without manually composing API requests:
+
+```sh
+make pipeline-jobs
+make pipeline-jobs REF=main WATCH=5
+make pipeline-logs REF=release/1.2.3 TAIL=100
+make pipeline-logs REF=main RUN_ID=123 JOB=456 FAILED_ONLY=0
+```
+
+REF defaults to the current branch and resolves to its local commit. RUN_ID is
+optional, numeric and checked against that SHA/ref/push event. WATCH=5 waits in
+five-second intervals; WATCH=0 only shows status/jobs. Failed workflows return an
+error. Logs default to failed jobs and the last 100 lines; FAILED_ONLY=0 includes
+all job logs. TAIL must be positive and applies to the combined gh log output;
+this differs from module pipeline-logs, where tail=0 is allowed and tail is per job.
+JOB must be a numeric job ID in the selected run. API/log errors stay
+fatal, and these read operations never mutate Git refs or publish anything.
+
+Main artifact verification checks all binaries, SHA256SUMS, the full MIT license,
+source/run identity and native version/help. Files stay under `dist/ci/<SHA>/`.
+Test the downloaded binary with the team's template/module before stable tagging.
+Standalone ci-artifacts retries download/verification; push-main supports an
+already prepared committed clean main. Branch CI creates Actions artifacts only.
+Existing different artifacts are preserved and rejected.
+
+Only after reviewing those artifacts:
+
+```sh
+make push-release VERSION=v1.2.3
+```
+
+Publication still requires verified current-main artifacts, local preflight,
+exact-main CI and an annotated immutable tag. It does not push main. Direct
+release-tag (local tag only) and push-release-tag enforce the same artifact gate.
+Tag CI checks main and its successful workflow. GitHub publication remains draft
+until every upload succeeds; there is no rc.N/prerelease lane. Preserve tags after
+failure, inspect/retry CI and resume push-release-tag for the identical tag.
+Build/check/clean never publish. After clean, reverify downloaded CI artifacts.
 
 ## Stock VoxBox compatibility evaluation
 
@@ -256,3 +325,84 @@ selection remains OpenVox 8. This local probe is not an official VoxBox 9 releas
 or a qualification of packaged agents, PDK, production modules or other CPU
 architectures. Module source was mounted read-only. No commits, pushes or
 publication were performed.
+
+## Version 1.1.0 generator and log regressions
+
+The combined release includes source workflow targets, configured-origin and
+portable authentication fixes, neutral template generation and cross-provider logs.
+Keep the implementation commit separate from `chore(release): prepare v1.1.0`;
+changelog remains Unreleased until release-finalize. Do not reuse the already
+published v1.0.0 tag. Existing work on release/1.0.1 must move to release/1.1.0
+before the source submission targets are used.
+
+internal/scaffold owns neutral starter assets, generated provider validation CI
+and exclusive new-directory writes. No deployed team template is embedded.
+Tests check provider selection/schema, conflicts/symlinks/traversal, no Git/Docker
+or host config side effects, real ERB sync/audit and its own Ruby fixture suite.
+The generated validation CI intentionally omits publication; do not fake green
+forge-publish or silently adopt team contracts.
+
+Host log regressions use local HTTP/TLS fixtures only: both API endpoints,
+credential-free signed redirects, unsafe redirects/status/size/cancellation,
+project/pipeline/job identity, tail/filtering, redaction and exclusive file output.
+mr/main/publication failures must retain their primary error and all Git guards
+when automatic log download fails. Never hit a real provider in these regressions.
+
+## Public Make target index
+
+This index covers every target shown by make help. Native/internal prerequisites
+are implementation details; use the public targets from the source checkout.
+Source release targets operate on this launcher, not a Puppet module.
+
+- Workspace: `help` lists targets; `clean` removes local generated artifacts and
+  coverage reports, including downloaded CI artifacts under DIST.
+- Dependencies: `tidy` changes module metadata; `deps-update` updates dependencies
+  then tidies. `checks-image` builds the developer Go/lint/security image, not a
+  module runtime image.
+- Formatting/static checks: `format` writes Go formatting throughout cmd/internal/docs;
+  `fmt-check` checks it, `vet` runs go vet, `lint` runs golangci-lint, and
+  `workflow-lint` checks source GitHub Actions YAML with actionlint.
+- Tests: `test` runs Go tests and shell-completion tests; `coverage-check` enforces
+  COVERAGE_THRESHOLD (default 65.0% Go statement coverage); `test-race` enables the
+  race detector. This Go threshold is unrelated to a team's 100% Puppet resource
+  coverage requirement. `release-targets-check` tests source Make lifecycle/recovery
+  against temporary Git remotes and fake gh; `image-scan-check` tests advisory
+  vulnerability handling and fatal scanner errors without real publication.
+- Security: `govulncheck` checks reachable Go vulnerabilities, `gosec` performs Go
+  security analysis, `security-go` combines them, and `trivy-filesystem` scans
+  source vulnerabilities/secrets/licenses/misconfiguration. `voxbox-security`
+  explicitly scans the upstream tool image; findings there are advisory, while
+  scanner failures remain errors. Source security gates remain strict.
+- SDK integration: `workflow-check` runs real Ruby/ERB regressions and Ruby-asset
+  lint. `voxbox-check` combines those checks with the explicit upstream image scan.
+  A skipped optional external template test is not a passed team integration.
+- Aggregate/build: `check` runs formatting, vet/lint, coverage, actionlint and source
+  regression targets. `full-check` adds race/security/SDK/Trivy checks. `build` runs
+  full-check, builds four platform binaries and checksums/LICENSE, and smoke-tests
+  the matching Linux-container binary. `validate-version` accepts dev, dev-SHA,
+  X.Y.Z or vX.Y.Z; release targets require canonical vX.Y.Z.
+- Branch preparation: `main-sync` safely synchronizes main; `release-prepare`
+  creates release/X.Y.Z from synchronized clean main. `release-prepare-noop`
+  previews from already synchronized clean main without changing refs.
+- Implementation/preparation: `release-commit` commits reviewed source;
+  `release-finalize` creates the separate changelog-only preparation commit.
+  `release-submit` combines commit/finalize/push. `release-commit-noop` and
+  `release-submit-noop` preview without staging/committing. `release-push` retries
+  or performs branch push without tags; `release-push-noop` previews that push.
+- PR/inspection: `mr` creates/reuses the source PR, waits, merges the pinned head,
+  synchronizes main and verifies its artifacts. `pipeline-jobs` and `pipeline-logs`
+  inspect source Actions with REF/RUN_ID/WATCH or JOB/FAILED_ONLY/TAIL as documented
+  above. Module log flags are a separate interface.
+- Release guard helpers: `release-version-check` validates VERSION against the
+  latest changelog release; `release-worktree-check` checks committed clean main;
+  `release-tag-check` refuses consumed tag names; `release-main-check` verifies
+  remote main; `release-ci-wait` waits for the exact ref/SHA workflow.
+  `release-artifacts-check` verifies the stored current-main CI artifact evidence.
+  These are normally invoked by combined release targets, not manual extra steps.
+- Artifact/release operations: `ci-artifacts` downloads and verifies main artifacts.
+  `push-main` supports an already prepared main and awaits its artifacts.
+  `release-preflight` runs a full local release build. `release-tag-noop` previews
+  guards; `release-tag` creates only the local annotated tag. `push-release-tag`
+  pushes/resumes that exact tag and waits for publication. `push-release` combines
+  reviewed artifact checks, preflight, local tagging and tag push. It never pushes
+  main. No build/check target publishes anything.

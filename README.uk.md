@@ -20,8 +20,43 @@ pmtool check
 Конфіг: ~/.config/puppet-module-tooling/config.json. Він містить image і Docker
 executable, без токенів і параметрів модулів. Типовий image:
 ghcr.io/voxpupuli/voxbox:10.1.0-openvox8@sha256:01bb8ce5e24d5b111934660f75e2786b4d7c7adcaa7518a564856d1d3041d10d.
+config.image/--image задає середовище ERB/audit/template-test. PDK/VoxBox validators
+використовують окремі pins: --pdk-image/PDK_IMAGE і --voxbox-image/VOXBOX_IMAGE.
 Шаблон, CI та provider задаються в .sync.yml; пріоритет CLI → .sync.yml → provider
 з origin. CI за замовчуванням береться з тієї самої версії шаблону.
+
+Git/API-команди наразі вимагають назву репозиторію `puppet-<module>`; lifecycle
+звіряє назву модуля з metadata. Це чинне обмеження хостового workflow.
+
+Ідентичність репозиторію визначає єдиний локальний `remote.origin.url`.
+Правила автентифікації runner лишаються конфігурацією Git-транспорту.
+URL у конфігурації не може містити пароль, query чи fragment; кілька origin URL
+відхиляються. Деталі — в [інструкції](docs/manual.uk.md#ідентичність-репозиторію-в-ci).
+
+## Створення шаблону та читання CI-логів
+
+```sh
+pmtool template-init --name team_template --output ./new-template --provider both
+pmtool template-test --module ./new-template
+pmtool pipeline-jobs --ref main
+pmtool pipeline-logs --ref main --failed --tail 100
+pmtool pipeline-logs --pipeline 123 --job 456 --tail 0 --output ./job.log
+```
+
+`template-init` локально створює новий каталог із manifest schema 1, defaults,
+ERB-прикладом, документацією, тестами та CI GitLab/GitHub. Docker, Git і мережа
+для генерації не потрібні. Наявні каталоги та файли не перезаписуються.
+Це стартовий пакет валідації: контракти команди й публікацію Forge додають явно.
+CI закріплює стабільну версію генератора; для dev-бінаря задайте
+`--launcher-version vX.Y.Z`. Див. [формат шаблону](docs/TEMPLATES.md#create-a-template).
+
+`pipeline-logs` читає логи через API поточного провайдера без змін Git.
+За замовчуванням виводить останні 100 рядків кожного job; `--failed` залишає
+невдалі jobs, `--tail 0` показує повний лог у межах ліміту. ID видно в
+`pipeline-jobs`. `--output` створює лише новий файл із правами 0600.
+Відомі токени приховуються; перед передаванням логів перевіряйте інші секрети.
+При падінні CI у `mr`/`release-tag` хвости невдалих jobs показуються автоматично,
+а первинна помилка та захист merge/tag зберігаються.
 
 ## Документація та ШІ
 
@@ -60,8 +95,8 @@ pmtool --executor native audit
 ```
 
 Native використовує той самий план, без Docker. Це явний режим із доступом
-до файлової системи й environment користувача job, а не sandbox. Git/API-мутації
-в ньому заборонені. Для повного check потрібні обидва toolchain.
+до файлової системи й environment користувача job, а не sandbox. Host Git/API
+команди, включно з читанням, запускайте без --executor native. Для повного check потрібні обидва toolchain.
 
 ## Структура
 
@@ -70,6 +105,7 @@ cmd/pmtool/          точка входу
 internal/pmtool/     CLI, конфіг, виконання, Go-тести
 internal/hostflow/   Git/API, релізи та Go-регресії
 internal/templatekit/ Go: шаблони, sync, ownership, загальний audit
+internal/scaffold/   нейтральний starter і генерація CI
 internal/workflow/   каталог команд
 docs/               документація, вбудована в pmtool
 test/               перевірки Make-таргетів source-релізів
@@ -79,39 +115,55 @@ test/               перевірки Make-таргетів source-релізі
 
 ```sh
 make format
-make build VERSION=v1.0.0
+make build VERSION=v1.1.0
 ```
 
 Build включає Go/Ruby перевірки, security, збірку чотирьох бінарників,
 LICENSE/SHA256SUMS і smoke. Runtime — закріплений upstream VoxBox з OpenVox 8;
 власний runtime-image не збирається. pmtool-checks містить лише Go/dev-інструменти.
-Спочатку коммітимо код із changelog під `## Unreleased`. Далі окремий підготовчий
-комміт: фіналізуємо заголовок як `## Release 1.0.0` і коммітимо лише release-зміни
-з повідомленням `chore(release): prepare v1.0.0`. VERSION-файла немає;
-версія бінарника й далі береться з параметра збірки/Git-тега.
-
-Після обох локальних коммітів публікуємо підготовлений чистий main:
+Source-реліз керується Make-таргетами через Git та GitHub CLI. Із чистого main:
 
 ```sh
-make push-main
+make release-prepare VERSION=v1.2.3
 ```
 
-Таргет пушить лише main, чекає CI точного SHA, завантажує його артефакти й
-перевіряє checksums, LICENSE та запуск нативного бінарника. CI-версія —
-`dev-<повний SHA комміту>`, файли зберігаються в `dist/ci/<SHA>/`.
-GitHub Release на цьому етапі не створюється. Перевірте завантажений бінарник
-зі своїм шаблоном і модулем. `make ci-artifacts` повторює завантаження/перевірку без пушу.
-
-Після цієї перевірки:
+Після змін коду й записів під `## Unreleased`:
 
 ```sh
-make push-release VERSION=v1.0.0
+make check
+make release-submit VERSION=v1.2.3 MESSAGE='Describe the implementation'
+make mr VERSION=v1.2.3
 ```
 
-Таргет вимагає перевірені CI-артефакти поточного чистого main, виконує preflight
-і створює/пушить stable-тег. Сам main тут не пушиться. Після завантаження всіх
-релізних файлів draft GitHub Release стає публічним. Окремого `rc.N` prerelease
-немає. Build/check/clean нічого не публікують.
+Submit створює комміт коду, окремий `chore(release): prepare v1.2.3` зі зміною
+лише заголовка changelog і пушить гілку без тегів. `mr` створює або використовує
+наявний PR, чекає CI точного SHA, зливає його, синхронізує main та завантажує і
+перевіряє CI-артефакти. VERSION-файла немає. Виправлення до незмердженого релізу
+можна додавати з тією самою версією; повторний пуш зберігає наявні комміти.
+
+```sh
+make pipeline-jobs
+make pipeline-jobs REF=main WATCH=5
+make pipeline-logs REF=main TAIL=100
+```
+
+REF за замовчуванням — поточна гілка; CI прив’язаний до SHA цього локального ref.
+RUN_ID має йому відповідати. JOB задає ID job саме цього пайплайна;
+FAILED_ONLY=0 включає логи успішних jobs. Перегляд CI не змінює Git refs.
+
+Перевірте завантажений бінарник із `dist/ci/<SHA>/` зі своїм шаблоном і модулем.
+Після цього публікуємо:
+
+```sh
+make push-release VERSION=v1.2.3
+```
+
+Перевірки артефактів, preflight, точного main, незмінного анотованого тега та
+публікації через draft збережено. `make ci-artifacts` повторює завантаження без
+пушу; `make push-main` лишається для вже підготовленого чистого main.
+Необов’язкові release-prepare-noop і release-submit-noop нічого не змінюють.
+Build/check/clean нічого не публікують. Після clean потрібно знову перевірити
+CI-артефакти перед тегом. Деталі — в [інструкції](docs/manual.uk.md#збірка-launcher).
 
 ## Ліцензія
 

@@ -30,7 +30,7 @@ help: ## Show available make targets.
 	grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 format: ## Format Go source files.
-	docker run --rm --network none --user "$$(id -u):$$(id -g)" --volume '$(CURDIR):/src' --workdir /src '$(GO_IMAGE)' gofmt -w cmd internal/pmtool internal/hostflow internal/templatekit internal/workflow/assets.go docs
+	docker run --rm --network none --user "$$(id -u):$$(id -g)" --volume '$(CURDIR):/src' --workdir /src '$(GO_IMAGE)' gofmt -w cmd internal docs
 
 tidy: ## Run go mod tidy and update module metadata.
 	docker run --rm --read-only --tmpfs /tmp:exec --user "$$(id -u):$$(id -g)" --volume '$(CURDIR):/src' --workdir /src --env HOME=/tmp --env GOCACHE=/tmp/go-cache --env GOPATH=/tmp/go-path '$(GO_IMAGE)' go mod tidy
@@ -49,7 +49,7 @@ govulncheck: checks-image ## Scan reachable Go code for known vulnerabilities.
 
 fmt-check-native:
 	@set -eu; \
-	unformatted="$$(gofmt -l cmd internal/pmtool internal/hostflow internal/templatekit internal/workflow/assets.go docs)"; \
+	unformatted="$$(gofmt -l cmd internal docs)"; \
 	if [ -n "$$unformatted" ]; then printf '%s\n' "$$unformatted"; exit 1; fi
 
 vet-native:
@@ -173,12 +173,8 @@ export VERSION GH RELEASE_REF RELEASE_WORKFLOW CI_ARTIFACT_ROOT CI_ARTIFACT_DIR 
 release-preflight: release-version-check ## Run all local release checks without Git mutations or publication.
 	$(MAKE) --no-print-directory build
 
-release-version-check: ## Validate canonical VERSION=vX.Y.Z against the latest changelog release.
+release-version-check: source-version-check ## Validate canonical VERSION=vX.Y.Z against the latest changelog release.
 	@set -eu; \
-	invalid="$$(printf '%s' "$$VERSION" | LC_ALL=C tr -d '0-9v.' | wc -c)"; \
-	if [ "$$invalid" -ne 0 ] || ! printf '%s\n' "$$VERSION" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$$'; then \
-	  printf '%s\n' 'VERSION must use canonical vMAJOR.MINOR.PATCH syntax' >&2; exit 2; \
-	fi; \
 	test -f CHANGELOG.md || { printf '%s\n' 'CHANGELOG.md is required for release' >&2; exit 2; }; \
 	latest="$$(awk '/^## Release / { sub(/^## Release /, ""); print; exit }' CHANGELOG.md)"; \
 	test "$$latest" = "$${VERSION#v}" || { printf '%s\n' 'VERSION differs from the latest changelog release' >&2; exit 2; }; \
@@ -207,7 +203,7 @@ release-main-check: ## Require origin/main to point to the current local commit.
 release-ci-wait: ## Wait for the pinned SHA/ref push workflow. RELEASE_REF defaults to main.
 	@set -eu; \
 	head="$$(git rev-parse HEAD)"; \
-	origin="$$(git remote get-url origin)"; \
+	origin="$$( $(MAKE) --no-print-directory source-origin )"; \
 	repo_url="$$("$$GH" repo view "$$origin" --json url --jq .url)"; \
 	repo="$${repo_url#https://}"; \
 	run_id=; attempt=0; \
@@ -240,7 +236,7 @@ ci-artifacts: ## Download and smoke-test the successful main CI artifacts for th
 	trap 'rm -rf -- "$$temporary"' EXIT; \
 	$(MAKE) --no-print-directory release-ci-wait RELEASE_REF=main CI_RUN_FILE="$$temporary/run-id"; \
 	run_id="$$(cat "$$temporary/run-id")"; \
-	origin="$$(git remote get-url origin)"; \
+	origin="$$( $(MAKE) --no-print-directory source-origin )"; \
 	repo_url="$$("$$GH" repo view "$$origin" --json url --jq .url)"; \
 	repo="$${repo_url#https://}"; \
 	"$$GH" run download "$$run_id" --repo "$$repo" --name "pmtool-dev-$$head" --dir "$$temporary/artifact"; \
@@ -274,7 +270,7 @@ release-artifacts-check: ## Require verified commit CI artifacts, exact source/r
 	fi; \
 	run_id="$$(cat "$$artifact_dir/.workflow-run-id")"; \
 	case "$$run_id" in ''|*[!0-9]*) printf '%s\n' 'Invalid artifact workflow run ID' >&2; exit 2 ;; esac; \
-	origin="$$(git remote get-url origin)"; \
+	origin="$$( $(MAKE) --no-print-directory source-origin )"; \
 	repo_url="$$("$$GH" repo view "$$origin" --json url --jq .url)"; \
 	repo="$${repo_url#https://}"; \
 	actual="$$("$$GH" run view "$$run_id" --repo "$$repo" --json headSha,headBranch,event,conclusion --jq '[.headSha, .headBranch, .event, .conclusion] | @tsv')"; \
@@ -302,7 +298,7 @@ push-main: ## Push clean main, wait for exact-SHA CI, download its artifacts and
 	@set -eu; \
 	$(MAKE) --no-print-directory release-worktree-check; \
 	head="$$(git rev-parse HEAD)"; \
-	origin="$$(git remote get-url origin)"; \
+	origin="$$( $(MAKE) --no-print-directory source-origin )"; \
 	"$$GH" repo view "$$origin" --json url --jq .url >/dev/null; \
 	git -c push.followTags=false push origin HEAD:refs/heads/main; \
 	$(MAKE) --no-print-directory release-main-check; \
@@ -370,6 +366,238 @@ push-release: ## After reviewing main CI artifacts, run preflight and create/pus
 	$(MAKE) --no-print-directory release-main-check; \
 	$(MAKE) --no-print-directory release-tag; \
 	$(MAKE) --no-print-directory push-release-tag
+
+MESSAGE ?= Update pmtool source
+REF ?=
+RUN_ID ?=
+WATCH ?= 0
+FAILED_ONLY ?= 1
+TAIL ?= 100
+JOB ?=
+export MESSAGE REF RUN_ID WATCH FAILED_ONLY TAIL JOB
+.PHONY: source-clone-check source-clean-check source-version-check source-origin source-repository source-candidate-check source-prepare-check source-release-ref-check source-release-branch-check source-pipeline-id main-sync release-prepare release-prepare-noop release-commit release-commit-noop release-finalize release-push release-push-noop release-submit release-submit-noop release-tag-noop mr pipeline-jobs pipeline-logs
+
+source-clone-check:
+	@set -eu; \
+	test -d .git && test ! -L .git || { printf '%s\n' 'An ordinary source clone with a .git directory is required' >&2; exit 2; }; \
+	test "$$(git rev-parse --show-toplevel)" = "$$(pwd -P)" || { printf '%s\n' 'Run source targets from the repository root' >&2; exit 2; }; \
+	git rev-parse --verify HEAD >/dev/null 2>&1 || { printf '%s\n' 'An initial source commit is required' >&2; exit 2; }; \
+	for state in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply sequencer index.lock; do \
+	  test ! -e "$$(git rev-parse --git-path "$$state")" || { printf 'Unfinished Git operation: %s\n' "$$state" >&2; exit 2; }; \
+	done
+
+source-clean-check: source-clone-check
+	@test -z "$$(git status --porcelain --untracked-files=all)" || { printf '%s\n' 'Working tree is dirty; preserve and commit reviewed changes first' >&2; exit 2; }
+
+source-version-check:
+	@set -eu; \
+	invalid="$$(printf '%s' "$$VERSION" | LC_ALL=C tr -d '0-9v.' | wc -c)"; \
+	if [ "$$invalid" -ne 0 ] || ! printf '%s\n' "$$VERSION" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$$'; then \
+	  printf '%s\n' 'VERSION must use canonical vMAJOR.MINOR.PATCH syntax' >&2; exit 2; \
+	fi
+
+source-origin: source-clone-check
+	@set -eu; \
+	origin="$$(git config --local --get-all remote.origin.url && printf '.')"; origin="$${origin%.}"; \
+	test "$$(printf '%s' "$$origin" | wc -l | tr -d ' ')" = 1 || { printf '%s\n' 'Exactly one configured origin URL is required' >&2; exit 2; }; \
+	origin="$${origin%?}"; \
+	test -n "$$origin" || { printf '%s\n' 'A configured origin URL is required' >&2; exit 2; }; \
+	authority="$${origin#*://}"; authority="$${authority%%/*}"; \
+	case "$$authority" in *:*@*) printf '%s\n' 'A credential-free configured origin is required' >&2; exit 2 ;; esac; \
+	case "$$origin" in *\?*|*\#*) printf '%s\n' 'Configured origin must not contain a query or fragment' >&2; exit 2 ;; esac; \
+	test "$$origin" = "$$(printf '%s' "$$origin" | tr -d '\r')" || { printf '%s\n' 'Configured origin must not contain line breaks' >&2; exit 2; }; \
+	printf '%s\n' "$$origin"
+
+source-repository:
+	@set -eu; \
+	origin="$$( $(MAKE) --no-print-directory source-origin )"; \
+	url="$$("$$GH" repo view "$$origin" --json url --jq .url)"; \
+	case "$$url" in https://*/*/*) printf '%s\n' "$${url#https://}" ;; *) printf '%s\n' 'Cannot resolve the source GitHub repository' >&2; exit 2 ;; esac
+
+main-sync: source-clean-check ## Synchronize clean main after verifying current HEAD and local main are merged; never reset or stash.
+	@set -eu; \
+	git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main; \
+	git merge-base --is-ancestor HEAD refs/remotes/origin/main || { printf '%s\n' 'HEAD has commits outside origin/main; preserve this branch and merge it first' >&2; exit 2; }; \
+	git merge-base --is-ancestor refs/heads/main refs/remotes/origin/main || { printf '%s\n' 'Local main is ahead or divergent; no changes discarded' >&2; exit 2; }; \
+	git switch main; \
+	git merge --ff-only refs/remotes/origin/main; \
+	$(MAKE) --no-print-directory release-main-check; \
+	printf '[OK] main synchronized at %s\n' "$$(git rev-parse HEAD)"
+
+source-candidate-check: source-version-check
+	@set -eu; \
+	previous="$$(awk '/^## Release / {sub(/^## Release /, ""); print; exit}' CHANGELOG.md)"; \
+	printf '%s\n' "$$previous" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$$' || { printf '%s\n' 'A canonical previous changelog release is required' >&2; exit 2; }; \
+	LC_ALL=C awk -v candidate="$${VERSION#v}" -v previous="$$previous" 'BEGIN {split(candidate,a,"[.]"); split(previous,b,"[.]"); for(i=1;i<=3;i++){if(length(a[i])!=length(b[i]))exit(length(a[i])>length(b[i])?0:1); if("x"a[i]!="x"b[i])exit("x"a[i]>"x"b[i]?0:1)} exit 1}' || { printf '%s\n' 'New release version must exceed the main changelog release' >&2; exit 2; }
+
+source-prepare-check: source-clone-check release-worktree-check source-candidate-check
+	@set -eu; \
+	$(MAKE) --no-print-directory release-main-check; \
+	$(MAKE) --no-print-directory source-release-ref-check
+
+source-release-ref-check: source-clone-check source-version-check
+	@set -eu; \
+	branch="release/$${VERSION#v}"; \
+	if git show-ref --verify --quiet "refs/heads/$$branch" || git show-ref --verify --quiet "refs/tags/$$VERSION"; then \
+	  printf '%s\n' 'Release branch or tag already exists locally; resume it explicitly' >&2; exit 2; \
+	fi; \
+	refs="$$(git ls-remote origin "refs/heads/$$branch" "refs/tags/$$VERSION" "refs/tags/$$VERSION^{}")"; \
+	test -z "$$refs" || { printf '%s\n' 'Release branch or tag already exists remotely' >&2; exit 2; }
+
+release-prepare-noop: source-prepare-check ## Preview release/X.Y.Z from synchronized clean main. VERSION=vX.Y.Z.
+	@printf '[NOOP] Would create release/%s at %s\n' "$${VERSION#v}" "$$(git rev-parse HEAD)"
+
+release-prepare: source-clean-check source-version-check ## Synchronize clean main and create release/X.Y.Z. VERSION=vX.Y.Z.
+	@set -eu; \
+	$(MAKE) --no-print-directory source-release-ref-check; \
+	$(MAKE) --no-print-directory main-sync; \
+	$(MAKE) --no-print-directory source-prepare-check; \
+	git switch -c "release/$${VERSION#v}"; \
+	printf '%s\n' '[NEXT] Edit code and Unreleased notes, then run make check.'
+
+source-release-branch-check: source-clone-check source-version-check
+	@set -eu; \
+	test "$$(git branch --show-current)" = "release/$${VERSION#v}" || { printf '%s\n' 'The current release branch must match VERSION' >&2; exit 2; }; \
+	if git show-ref --verify --quiet "refs/tags/$$VERSION"; then printf '%s\n' 'Release tag already exists locally' >&2; exit 2; fi; \
+	refs="$$(git ls-remote --tags origin "refs/tags/$$VERSION" "refs/tags/$$VERSION^{}")"; \
+	test -z "$$refs" || { printf '%s\n' 'Release tag already exists remotely' >&2; exit 2; }
+
+release-commit-noop: source-release-branch-check ## Show automatic source file selection and diff without staging or committing.
+	@set -eu; printf '[NOOP] Source selection for %s\n' "$$VERSION"; git status --short; git --no-pager diff --no-ext-diff --no-textconv HEAD --
+
+release-submit-noop: release-commit-noop ## Preview source submission; does not stage, commit, finalize, push or merge.
+	@printf '[NOOP] Would commit reviewed changes, finalize %s separately if needed, and push release/%s\n' "$$VERSION" "$${VERSION#v}"
+
+release-commit: source-release-branch-check ## Commit all reviewed source changes. VERSION=vX.Y.Z; optional MESSAGE='...'.
+	@set -eu; \
+	test -n "$${MESSAGE:-}" || { printf '%s\n' 'MESSAGE must not be empty' >&2; exit 2; }; \
+	test -n "$$(git status --porcelain --untracked-files=all)" || { printf '%s\n' 'No source changes to commit' >&2; exit 2; }; \
+	if ! grep -Fxq '## Unreleased' CHANGELOG.md; then $(MAKE) --no-print-directory release-version-check; fi; \
+	git add -A; \
+	git diff --cached --check; \
+	git commit --message "$$MESSAGE"; \
+	printf '[OK] Source commit %s\n' "$$(git rev-parse HEAD)"
+
+release-finalize: source-release-branch-check source-clean-check ## Commit only Unreleased -> Release X.Y.Z as chore(release): prepare vX.Y.Z.
+	@set -eu; \
+	count="$$(grep -Fxc '## Unreleased' CHANGELOG.md || true)"; \
+	if [ "$$count" = 0 ]; then \
+	  $(MAKE) --no-print-directory release-version-check; \
+	  printf '[OK] Release notes already finalized for %s\n' "$$VERSION"; exit 0; \
+	fi; \
+	test "$$count" = 1 || { printf '%s\n' 'Exactly one Unreleased heading is required' >&2; exit 2; }; \
+	if grep -Fxq "## Release $${VERSION#v}" CHANGELOG.md; then printf '%s\n' 'Release heading already exists; inspect changelog before finalizing' >&2; exit 2; fi; \
+	temporary="$$(mktemp .git/pmtool-changelog.XXXXXX)"; \
+	trap 'rm -f -- "$$temporary"' EXIT; \
+	awk -v version="$${VERSION#v}" '$$0=="## Unreleased" {print "## Release "version; next} {print}' CHANGELOG.md > "$$temporary"; \
+	cat "$$temporary" > CHANGELOG.md; \
+	$(MAKE) --no-print-directory release-version-check; \
+	git add -- CHANGELOG.md; \
+	git diff --cached --check; \
+	git commit --message "chore(release): prepare $$VERSION"; \
+	printf '[OK] Prepared %s in a separate release-only commit\n' "$$VERSION"
+
+release-push-noop: source-release-branch-check source-clean-check release-version-check ## Preview the prepared branch push without changing remote refs or pushing tags.
+	@git -c push.followTags=false push --dry-run --porcelain origin "HEAD:refs/heads/release/$${VERSION#v}"
+
+release-push: source-release-branch-check source-clean-check release-version-check ## Push the prepared release branch without tags; preserve commits on failure.
+	@set -eu; \
+	repo="$$( $(MAKE) --no-print-directory source-repository )"; \
+	git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main; \
+	git merge-base --is-ancestor refs/remotes/origin/main HEAD || { printf '%s\n' 'Release branch does not include current origin/main; reconcile it explicitly' >&2; exit 2; }; \
+	head="$$(git rev-parse HEAD)"; \
+	if ! git -c push.followTags=false push --set-upstream origin "HEAD:refs/heads/release/$${VERSION#v}"; then \
+	  printf 'Commit preserved. Retry: make release-push VERSION=%s\n' "$$VERSION" >&2; exit 2; \
+	fi; \
+	test "$$(git rev-parse HEAD)" = "$$head" || { printf '%s\n' 'HEAD changed during release push' >&2; exit 2; }; \
+	printf '[OK] %s release/%s pushed at %s\n' "$$repo" "$${VERSION#v}" "$$head"; \
+	printf '[NEXT] make mr VERSION=%s\n' "$$VERSION"
+
+release-submit: source-release-branch-check ## Commit reviewed code, prepare release notes separately, then push; repeat safely after a push failure.
+	@set -eu; \
+	if [ -n "$$(git status --porcelain --untracked-files=all)" ]; then $(MAKE) --no-print-directory release-commit; fi; \
+	$(MAKE) --no-print-directory release-finalize; \
+	$(MAKE) --no-print-directory release-push
+
+release-tag-noop: ## Preview a local stable tag after the normal artifact/main/CI guards; never create or push a tag.
+	@set -eu; \
+	$(MAKE) --no-print-directory release-worktree-check; \
+	$(MAKE) --no-print-directory release-tag-check; \
+	$(MAKE) --no-print-directory release-artifacts-check; \
+	head="$$(git rev-parse HEAD)"; \
+	$(MAKE) --no-print-directory release-ci-wait RELEASE_REF=main; \
+	$(MAKE) --no-print-directory release-worktree-check; \
+	test "$$(git rev-parse HEAD)" = "$$head" || { printf '%s\n' 'Local HEAD changed during tag preview' >&2; exit 2; }; \
+	$(MAKE) --no-print-directory release-main-check; \
+	$(MAKE) --no-print-directory release-tag-check; \
+	printf '[NOOP] Would create annotated %s at %s\n' "$$VERSION" "$$head"
+
+mr: source-release-branch-check source-clean-check release-version-check ## Create/reuse the release PR, wait for exact-head CI, merge, sync main and verify its CI artifacts.
+	@set -eu; \
+	branch="release/$${VERSION#v}"; head="$$(git rev-parse HEAD)"; \
+	repo="$$( $(MAKE) --no-print-directory source-repository )"; \
+	remote="$$(git ls-remote --heads origin "refs/heads/$$branch" | awk 'NR==1 {print $$1}')"; \
+	test "$$remote" = "$$head" || { printf '%s\n' 'Remote release branch differs from HEAD; run release-push first' >&2; exit 2; }; \
+	requests="$$("$$GH" pr list --repo "$$repo" --head "$$branch" --base main --state open --limit 100 --json number --jq '.[].number')"; \
+	if [ -z "$$requests" ]; then \
+	  body="$$(mktemp -t pmtool-pr.XXXXXX)"; trap 'rm -f -- "$$body"' EXIT; \
+	  printf 'Release pmtool %s.\n\n' "$$VERSION" > "$$body"; \
+	  awk -v heading="## Release $${VERSION#v}" '$$0==heading {copy=1; next} copy && /^## / {exit} copy {print}' CHANGELOG.md >> "$$body"; \
+	  "$$GH" pr create --repo "$$repo" --head "$$branch" --base main --title "[REL] Release $${VERSION#v}" --body-file "$$body"; \
+	  requests="$$("$$GH" pr list --repo "$$repo" --head "$$branch" --base main --state open --limit 100 --json number --jq '.[].number')"; \
+	fi; \
+	case "$$requests" in ''|*[!0-9]*) printf '%s\n' 'Expected exactly one open release PR' >&2; exit 2 ;; esac; \
+	$(MAKE) --no-print-directory release-ci-wait RELEASE_REF="$$branch"; \
+	actual="$$("$$GH" pr view "$$requests" --repo "$$repo" --json state,headRefName,baseRefName,headRefOid --jq '[.state,.headRefName,.baseRefName,.headRefOid] | @tsv')"; \
+	expected="$$(printf 'OPEN\t%s\tmain\t%s' "$$branch" "$$head")"; \
+	test "$$actual" = "$$expected" || { printf '%s\n' 'Release PR state, branch, base or SHA changed' >&2; exit 2; }; \
+	$(MAKE) --no-print-directory source-clean-check; \
+	test "$$(git rev-parse HEAD)" = "$$head" && test "$$(git branch --show-current)" = "$$branch" || { printf '%s\n' 'Local release branch changed while waiting' >&2; exit 2; }; \
+	"$$GH" pr merge "$$requests" --repo "$$repo" --merge --match-head-commit "$$head"; \
+	if ! $(MAKE) --no-print-directory main-sync; then printf '%s\n' 'Merge is preserved. Resolve the local issue and retry make main-sync.' >&2; exit 2; fi; \
+	if ! $(MAKE) --no-print-directory ci-artifacts; then printf '%s\n' 'Merge and synchronized main are preserved. Retry make ci-artifacts.' >&2; exit 2; fi
+
+source-pipeline-id:
+	@set -eu; \
+	repo="$$( $(MAKE) --no-print-directory source-repository )"; \
+	ref="$${REF:-$$(git branch --show-current)}"; \
+	test -n "$$ref" && git check-ref-format "refs/heads/$$ref" || { printf '%s\n' 'REF must name a branch or tag' >&2; exit 2; }; \
+	head="$$(git rev-parse --verify --end-of-options "$$ref^{commit}")"; \
+	run="$${RUN_ID:-}"; \
+	if [ -z "$$run" ]; then run="$$("$$GH" run list --repo "$$repo" --workflow "$$RELEASE_WORKFLOW" --branch "$$ref" --commit "$$head" --event push --limit 100 --json databaseId --jq 'max_by(.databaseId).databaseId // empty')"; fi; \
+	case "$$run" in ''|*[!0-9]*) printf '%s\n' 'No valid matching push workflow; check REF or RUN_ID' >&2; exit 2 ;; esac; \
+	actual="$$("$$GH" run view "$$run" --repo "$$repo" --json headSha,headBranch,event --jq '[.headSha,.headBranch,.event] | @tsv')"; \
+	expected="$$(printf '%s\t%s\tpush' "$$head" "$$ref")"; \
+	test "$$actual" = "$$expected" || { printf '%s\n' 'Pipeline SHA, ref or event differs from the selected source ref' >&2; exit 2; }; \
+	printf '%s\n' "$$run"
+
+pipeline-jobs: ## Show source CI jobs for REF (current branch by default); WATCH=5 waits for completion. Optional RUN_ID.
+	@set -eu; \
+	case "$$WATCH" in ''|*[!0-9]*) printf '%s\n' 'WATCH must be a nonnegative number of seconds' >&2; exit 2 ;; esac; \
+	repo="$$( $(MAKE) --no-print-directory source-repository )"; \
+	run="$$( $(MAKE) --no-print-directory source-pipeline-id )"; \
+	if [ "$$WATCH" -gt 0 ]; then "$$GH" run watch "$$run" --repo "$$repo" --interval "$$WATCH" --exit-status; fi; \
+	"$$GH" run view "$$run" --repo "$$repo" --exit-status
+
+pipeline-logs: ## Read source CI logs. REF/RUN_ID select a run; JOB selects a job ID; FAILED_ONLY=0 shows all logs; TAIL=100.
+	@set -eu; \
+	case "$$TAIL" in ''|*[!0-9]*) printf '%s\n' 'TAIL must be a positive line count' >&2; exit 2 ;; esac; \
+	test "$$TAIL" -gt 0 || { printf '%s\n' 'TAIL must be positive' >&2; exit 2; }; \
+	case "$$FAILED_ONLY" in 0|1) ;; *) printf '%s\n' 'FAILED_ONLY must be 0 or 1' >&2; exit 2 ;; esac; \
+	case "$$JOB" in *[!0-9]*) printf '%s\n' 'JOB must be a numeric job ID' >&2; exit 2 ;; esac; \
+	repo="$$( $(MAKE) --no-print-directory source-repository )"; \
+	run="$$( $(MAKE) --no-print-directory source-pipeline-id )"; \
+	set -- "$$run" --repo "$$repo"; \
+	if [ "$$FAILED_ONLY" = 1 ]; then set -- "$$@" --log-failed; else set -- "$$@" --log; fi; \
+	if [ -n "$$JOB" ]; then \
+	  belongs="$$("$$GH" run view "$$run" --repo "$$repo" --json jobs --jq "any(.jobs[]; .databaseId == $$JOB)")"; \
+	  test "$$belongs" = true || { printf '%s\n' 'JOB does not belong to the selected pipeline' >&2; exit 2; }; \
+	  set -- "$$@" --job "$$JOB"; \
+	fi; \
+	log="$$(mktemp -t pmtool-ci-log.XXXXXX)"; trap 'rm -f -- "$$log"' EXIT; \
+	"$$GH" run view "$$@" > "$$log"; \
+	if [ -s "$$log" ]; then tail -n "$$TAIL" "$$log"; else printf '%s\n' '[OK] No matching source job logs were returned.'; fi; \
+	printf '[OK] Source workflow %s logs displayed\n' "$$run"
 
 .PHONY: release-targets-check release-targets-check-native
 release-targets-check: ## Test release guards against local Git fixtures and a fake GitHub API.

@@ -124,19 +124,26 @@ func (a *app) complete(opts options, words []string) int {
 	}
 	if !strings.Contains(current, "=") && len(completionEnum(previous)) == 0 {
 		switch previous {
-		case "--image", "--config", "--docker", "--socket", "--executor", "--stage", "--module", "--output", "--file", "--files", "--ci", "--template", "--ref", "--branch", "--title", "--watch", "--version", "--pdk-image", "--voxbox-image", "--ci-project":
+		case "--image", "--config", "--docker", "--socket", "--executor", "--stage", "--module", "--output", "--file", "--files", "--ci", "--template", "--ref", "--branch", "--title", "--watch", "--version", "--pdk-image", "--voxbox-image", "--ci-project", "--name", "--launcher-version", "--pipeline", "--job", "--tail":
 			return 0
 		}
 	}
 	var candidates []string
 	if key, prefix, equal := strings.Cut(current, "="); equal && strings.HasPrefix(key, "--") {
-		for _, value := range completionEnum(key) {
+		values := completionEnum(key)
+		if key == "--provider" && command == "template-init" {
+			values = append(values, "both")
+		}
+		for _, value := range values {
 			if strings.HasPrefix(value, prefix) {
 				candidates = append(candidates, key+"="+value)
 			}
 		}
 	} else if values := completionEnum(previous); len(values) > 0 {
 		candidates = values
+		if previous == "--provider" && command == "template-init" {
+			candidates = append(candidates, "both")
+		}
 	} else {
 		switch command {
 		case "":
@@ -172,6 +179,10 @@ func (a *app) complete(opts options, words []string) int {
 			} else {
 				candidates = []string{"--section"}
 			}
+		case "template-init":
+			candidates = []string{"--name", "--output", "--provider", "--launcher-version", "--help"}
+		case "pipeline-logs":
+			candidates = []string{"--module", "--provider", "--ref", "--pipeline", "--job", "--failed", "--tail", "--output", "--help"}
 		case "version":
 		default:
 			for _, name := range a.completionManifest(opts).Options {

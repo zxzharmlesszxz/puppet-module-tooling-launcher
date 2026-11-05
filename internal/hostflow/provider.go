@@ -81,7 +81,7 @@ func (c *Client) Jobs(ctx context.Context, id int64) ([]Job, error) {
 				name = "forge-publish"
 			}
 		}
-		result = append(result, Job{Name: name, Status: status, URL: address, Runner: text(object(r, "runner"), "description")})
+		result = append(result, Job{ID: number(r, "id"), Name: name, Status: status, URL: address, Runner: text(object(r, "runner"), "description")})
 	}
 	return result, nil
 }

@@ -18,7 +18,14 @@
     "provider",
     "template",
     "host-module",
-    "ci-project"
+    "ci-project",
+    "pipeline",
+    "job",
+    "failed",
+    "tail",
+    "output",
+    "name",
+    "launcher-version"
   ],
   "commands": {
     "migrate": {
@@ -384,6 +391,22 @@
     "template-test": {
       "module": true,
       "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "pipeline-logs": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": true,
+      "author": false,
+      "template_token": false
+    },
+    "template-init": {
+      "module": false,
+      "read_only": false,
       "socket": false,
       "token": false,
       "author": false,

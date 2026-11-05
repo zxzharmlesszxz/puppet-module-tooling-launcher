@@ -20,7 +20,10 @@ type Pipeline struct {
 	ID                    int64
 	Ref, SHA, Status, URL string
 }
-type Job struct{ Name, Status, URL, Runner string }
+type Job struct {
+	ID                        int64
+	Name, Status, URL, Runner string
+}
 type Branch struct {
 	Name, SHA string
 	Protected bool
@@ -35,6 +38,7 @@ type Hosting interface {
 	Pipelines(context.Context, PipelineQuery) ([]Pipeline, error)
 	Pipeline(context.Context, int64) (Pipeline, error)
 	Jobs(context.Context, int64) ([]Job, error)
+	JobLog(context.Context, int64) ([]byte, error)
 	Branch(context.Context, string) (Branch, error)
 	Requests(context.Context, string, string, string) ([]Request, error)
 	Request(context.Context, int64) (Request, error)

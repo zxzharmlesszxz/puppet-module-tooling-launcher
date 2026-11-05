@@ -12,14 +12,21 @@ type workflowSettings struct {
 	Template string `json:"template"`
 }
 
+func (a *app) configuredOrigin(module string) (string, error) {
+	return hostflow.ConfiguredOrigin(func(args ...string) (string, error) {
+		output, err := a.driver.capture("git", append([]string{"-C", module}, args...))
+		return string(output), err
+	})
+}
+
 func (a *app) resolveWorkflowSettings(module string, cli workflowSettings) workflowSettings {
 	selected := must(hostflow.ReadSettings(module, hostflow.Settings{CI: cli.CI, Provider: cli.Provider, Template: cli.Template}))
 	if selected.Provider == "" {
-		origin, err := a.driver.capture("git", []string{"-C", module, "remote", "get-url", "origin"})
+		origin, err := a.configuredOrigin(module)
 		if err != nil {
 			fail("cannot read origin from module: %v", err)
 		}
-		_, provider, err := hostflow.OriginContext(strings.TrimSpace(string(origin)), "")
+		_, provider, err := hostflow.OriginContext(origin, "")
 		check(err)
 		selected.Provider = provider
 	}

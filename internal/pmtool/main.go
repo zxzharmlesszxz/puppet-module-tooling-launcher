@@ -261,6 +261,9 @@ func (a *app) run(args []string) int {
 		must(fmt.Fprintln(a.stdout, string(must(json.Marshal(launcherManifest())))))
 		return 0
 	}
+	if args[0] == "template-init" {
+		return a.initTemplate(args[1:], opts.dryRun)
+	}
 	if args[0] == "settings" {
 		o := a.parseOperation(args)
 		selected := a.resolveWorkflowSettings(o.Module, o.Settings)

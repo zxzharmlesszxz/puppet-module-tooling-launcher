@@ -18,6 +18,10 @@ import (
 type Options struct {
 	Command, Module, Branch, Ref, Title, Version, Files, File, CIProject string
 	Watch                                                                time.Duration
+	PipelineID, JobID                                                    int64
+	Tail                                                                 int
+	Failed                                                               bool
+	Output                                                               string
 	Settings                                                             Settings
 	Noop                                                                 bool
 }
@@ -34,7 +38,7 @@ type Engine struct {
 	Recovery, RecoveryRef string
 }
 
-var commands = strings.Fields("status diff settings bootstrap-prepare bootstrap-commit bootstrap-commit-noop bootstrap-push bootstrap-push-noop main-sync release-prepare release-commit release-commit-noop release-submit release-push release-push-noop release-tag release-tag-noop cleanup cleanup-noop mr mr-create mr-merge pipeline-jobs policy policy-noop policy-delete-master")
+var commands = strings.Fields("status diff settings bootstrap-prepare bootstrap-commit bootstrap-commit-noop bootstrap-push bootstrap-push-noop main-sync release-prepare release-commit release-commit-noop release-submit release-push release-push-noop release-tag release-tag-noop cleanup cleanup-noop mr mr-create mr-merge pipeline-jobs pipeline-logs policy policy-noop policy-delete-master")
 
 func IsCommand(name string) bool {
 	return slices.Contains(commands, name)
@@ -43,9 +47,12 @@ func Parse(args []string, cwd string) (Options, error) {
 	if len(args) == 0 {
 		return Options{}, fmt.Errorf("missing workflow command")
 	}
-	o := Options{Command: args[0], Module: cwd, Noop: strings.HasSuffix(args[0], "-noop")}
+	o := Options{Command: args[0], Module: cwd, Tail: 100, Noop: strings.HasSuffix(args[0], "-noop")}
 	for i := 1; i < len(args); i++ {
 		key, value, equals := strings.Cut(args[i], "=")
+		if key == "--failed" && !equals {
+			value, equals = "true", true
+		}
 		if !equals {
 			i++
 			if i >= len(args) {
@@ -88,6 +95,33 @@ func Parse(args []string, cwd string) (Options, error) {
 				return o, fmt.Errorf("provider must not be empty")
 			}
 			o.Settings.Provider = value
+		case "--pipeline", "--job":
+			id, err := strconv.ParseInt(value, 10, 64)
+			if err != nil || id <= 0 {
+				return o, fmt.Errorf("%s must be a positive ID", key)
+			}
+			if key == "--pipeline" {
+				o.PipelineID = id
+			} else {
+				o.JobID = id
+			}
+		case "--tail":
+			n, err := strconv.Atoi(value)
+			if err != nil || n < 0 || n > 100000 {
+				return o, fmt.Errorf("tail must be 0..100000 lines")
+			}
+			o.Tail = n
+		case "--failed":
+			selected, err := strconv.ParseBool(value)
+			if err != nil {
+				return o, fmt.Errorf("failed must be true or false")
+			}
+			o.Failed = selected
+		case "--output":
+			if value == "" {
+				return o, fmt.Errorf("output must not be empty")
+			}
+			o.Output = value
 		case "--watch":
 			seconds, err := strconv.Atoi(value)
 			if err != nil || seconds < 0 || seconds > 86400 {
@@ -110,7 +144,7 @@ func New(ctx context.Context, o Options, getenv func(string) string, out io.Writ
 		return nil, err
 	}
 	g := &Git{Root: o.Module, Context: ctx, Getenv: getenv}
-	origin, err := g.Text("remote", "get-url", "origin")
+	origin, err := ConfiguredOrigin(g.Run)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +179,7 @@ func (e *Engine) row(format string, args ...any) {
 	e.print("%s\t%s\n", e.Project.Name, fmt.Sprintf(format, args...))
 }
 func (e *Engine) origin() error {
-	origin, err := e.Git.Text("remote", "get-url", "origin")
+	origin, err := ConfiguredOrigin(e.Git.Run)
 	if err != nil {
 		return err
 	}
@@ -423,8 +457,12 @@ func optionAllowed(command, key string) bool {
 		return command == "diff"
 	case "--branch":
 		return command == "bootstrap-prepare" || command == "cleanup" || command == "cleanup-noop" || strings.HasPrefix(command, "mr") || command == "pipeline-jobs"
-	case "--ref", "--watch":
+	case "--ref":
+		return command == "pipeline-jobs" || command == "pipeline-logs"
+	case "--watch":
 		return command == "pipeline-jobs"
+	case "--pipeline", "--job", "--tail", "--failed", "--output":
+		return command == "pipeline-logs"
 	case "--title":
 		return command == "mr" || command == "mr-create"
 	case "--version":

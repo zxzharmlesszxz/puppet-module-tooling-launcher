@@ -83,6 +83,8 @@ func (e *Engine) Run(o Options) (err error) {
 			return fmt.Errorf("merge succeeded; retry main-sync without repeating merge: %w", err)
 		}
 		return nil
+	case "pipeline-logs":
+		return e.pipelineLogs(o)
 	case "pipeline-jobs":
 		return e.pipelineJobs(o)
 	case "policy", "policy-noop", "policy-delete-master":
