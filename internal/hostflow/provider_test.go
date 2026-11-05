@@ -200,9 +200,9 @@ func TestPipelineAndJobsNormalization(t *testing.T) {
 				case strings.Contains(r.URL.Path, "/branches/"):
 					writeJSON(t, w, record{"name": "release/1.2.3", "commit": record{"sha": "abc", "id": "abc"}, "protected": true})
 				case strings.HasSuffix(r.URL.Path, "/jobs"):
-					job := record{"name": "forge-publish", "status": "success"}
+					job := record{"id": 42, "name": "forge-publish", "status": "success"}
 					if provider == "github" {
-						job = record{"name": "publish / forge-publish", "status": "completed", "conclusion": "success"}
+						job = record{"id": 42, "name": "publish / forge-publish", "status": "completed", "conclusion": "success"}
 						writeJSON(t, w, record{"jobs": []record{job}})
 					} else {
 						writeJSON(t, w, []record{job})
@@ -222,7 +222,7 @@ func TestPipelineAndJobsNormalization(t *testing.T) {
 				t.Fatal(p, err)
 			}
 			jobs, err := c.Jobs(testContext(t), 4)
-			if err != nil || len(jobs) != 1 || jobs[0].Name != "forge-publish" || jobs[0].Status != "success" {
+			if err != nil || len(jobs) != 1 || jobs[0].ID != 42 || jobs[0].Name != "forge-publish" || jobs[0].Status != "success" {
 				t.Fatal(jobs, err)
 			}
 			b, err := c.Branch(testContext(t), "release/1.2.3")

@@ -2,8 +2,12 @@
 
 `internal/hostflow` implements module Git and hosting operations in Go. It invokes
 host Git with separate arguments and uses the standard HTTP client for GitLab and
-GitHub. These operations do not start Docker, probe Ruby or create image settings.
-Template checkout, sync, general audit and validation planning also run in Go.
+GitHub. Host project resolution currently requires a `puppet-<module>` repository
+name. It constructs HTTP(S) remote URLs with provider credentials even when the
+configured identity is SSH/SCP. Host Git transport rewrites still apply; the
+launcher does not mount or forward SSH keys into tools containers. These operations do not start Docker, probe Ruby or create image settings.
+Read-only settings/provider inference can still invoke host Git for origin.
+Template checkout, sync, general audit, template generation and validation planning also run in Go.
 Ruby is used only for ERB and template-owned Puppet/RSpec checks.
 
 The command order remains:
@@ -41,8 +45,8 @@ release-prepare → sync → edit → check → release-submit → mr → check 
 ## Credentials and transport
 
 API endpoints must belong to the origin host. Tokens stay in environment variables;
-only the selected provider's token is used. HTTP redirects are refused so an API
-redirect cannot forward credentials. API errors exclude response bodies and tokens.
+only the selected provider's token is used. General API redirects are refused. GitHub job-log downloads are the narrow
+exception: bounded signed HTTPS redirects use no provider headers or cookies. API errors exclude response bodies and tokens.
 Mutating HTTP requests are not automatically retried.
 
 HTTPS Git authentication uses a temporary executable askpass helper containing no
@@ -50,6 +54,37 @@ secret. The token is available only in that remote Git subprocess's environment;
 credential persistence is disabled. The helper is removed on success and failure.
 GitHub uses `GITHUB_TOKEN`; GitLab uses `GITLAB_TOKEN` and optional `GITLAB_USERNAME`.
 No token is forwarded to validators or substituted into remote URLs or argv.
+
+## Pipeline logs (1.1.0)
+
+```sh
+pmtool pipeline-jobs --ref main
+pmtool pipeline-logs --ref main --failed --tail 100
+pmtool pipeline-logs --pipeline 123 --job 456 --tail 0 --output ./job.log
+```
+
+Module log reads use the selected provider API without Git mutation or Docker.
+Latest-ref selection pins the available server branch head; explicit pipeline IDs
+stay project-scoped and an optional ref must match. Numeric job IDs must belong
+to that run's latest attempt. Default selection is all jobs, last 100 lines each;
+--failed filters failed jobs and --tail 0 requests full bounded output.
+Downloads are limited to 16 MiB/job and combined output to 32 MiB.
+
+Known tokens, credential URLs and terminal controls are removed before tailing or
+exclusive mode-0600 file output. This cannot detect every secret unknown to pmtool.
+Missing/expired logs or API failures remain errors. Automatic failed-job tails in
+mr/main/publication failure paths never replace the primary error or weaken merge,
+exact-ref or tag recovery guards. See [selection and limits](manual.md#pipeline-logs).
+Source Make pipeline-logs is a separate command for launcher-source Actions runs.
+
+## Template generation (1.1.0)
+
+The local template-init command bypasses Git, API, Docker and image config. It
+creates a new directory with a neutral schema-1 validation starter, self-tests,
+authoring docs and selected GitLab/GitHub CI. It refuses existing output and
+symlink parents. This does not install team contracts, coverage enforcement or
+Forge publication. Stable generated CI verifies launcher downloads; dev builds
+need --launcher-version naming a published release. See [template authoring](TEMPLATES.md#create-a-template).
 
 ## Regression evidence
 
@@ -71,18 +106,25 @@ use the read-only module cache. No linter or coverage threshold is relaxed.
 
 ## Regression ownership
 
-| Scenario family                                                               | Go regression suite                            |
-| ----------------------------------------------------------------------------- | ---------------------------------------------- |
-| Bootstrap/main preparation, commits, exact pushes, preview/index preservation | internal/hostflow/regression_lifecycle_test.go |
-| Main/tag CI statuses, bounded creation wait, pinned pipeline ID, MR recovery  | internal/hostflow/regression_wait_test.go      |
-| Policy preview/apply, access updates, rulesets, master deletion               | internal/hostflow/regression_policy_test.go    |
-| Cleanup ancestry, stale refs, worktrees, local races and remote leases        | internal/hostflow/regression_cleanup_test.go   |
-| Both REST adapters, job/request pagination, unsafe GitHub conclusions         | internal/hostflow/regression_provider_test.go  |
-| Workflow advice, local state, explicit settings and partial-success recovery  | internal/hostflow/guidance_test.go             |
-| Validation fail-fast, exit/signal codes, quoting, no SDK/credential hints     | internal/pmtool/regression_workflow_test.go    |
+| Scenario family                                                                 | Go regression suite                            |
+| ------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Bootstrap/main preparation, commits, exact pushes, preview/index preservation   | internal/hostflow/regression_lifecycle_test.go |
+| Main/tag CI statuses, bounded creation wait, pinned pipeline ID, MR recovery    | internal/hostflow/regression_wait_test.go      |
+| Policy preview/apply, access updates, rulesets, master deletion                 | internal/hostflow/regression_policy_test.go    |
+| Cleanup ancestry, stale refs, worktrees, local races and remote leases          | internal/hostflow/regression_cleanup_test.go   |
+| Both REST adapters, job/request pagination, unsafe GitHub conclusions           | internal/hostflow/regression_provider_test.go  |
+| Workflow advice, local state, explicit settings and partial-success recovery    | internal/hostflow/guidance_test.go             |
+| Log API/redirect isolation, selection, redaction, output and failed-CI recovery | internal/hostflow/logs_test.go                 |
+| New-template schema/providers, no overwrite and path guards                     | internal/scaffold/generate_test.go             |
+| Local generation/completion, no Git/Docker/config side effects                  | internal/pmtool/template_init_test.go          |
+| Validation fail-fast, exit/signal codes, quoting, no SDK/credential hints       | internal/pmtool/regression_workflow_test.go    |
 
 Template regressions are in internal/templatekit: engine_test.go covers conflicts,
 retirement, races and audit; policy_test.go covers template authority/schema;
 checkout_test.go covers archive and credential boundaries; reference_test.go covers
 pinned CI/template selection; render_test.go runs real ERB in workflow-check.
+scaffold_test.go checks generated templates through real ERB sync/audit and their
+own Ruby suite; scaffold_bootstrap_test.go exercises the shipped CI installer.
+The optional versioned-team integration requires PMTOOL_TEST_TEMPLATE; a SKIP
+means that external team checkout was not tested by this invocation.
 internal/pmtool/planner_test.go covers ordered execution, native plans and isolated workers.

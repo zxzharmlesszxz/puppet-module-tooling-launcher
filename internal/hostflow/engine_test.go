@@ -16,6 +16,7 @@ import (
 )
 
 type fakeHosting struct {
+	jobLog    func(int64) ([]byte, error)
 	pipelines func(PipelineQuery) ([]Pipeline, error)
 	pipeline  func(int64) (Pipeline, error)
 	jobs      func(int64) ([]Job, error)
@@ -43,6 +44,12 @@ func (f *fakeHosting) Jobs(_ context.Context, id int64) ([]Job, error) {
 		return f.jobs(id)
 	}
 	return []Job{{Name: "forge-publish", Status: "success"}}, nil
+}
+func (f *fakeHosting) JobLog(_ context.Context, id int64) ([]byte, error) {
+	if f.jobLog != nil {
+		return f.jobLog(id)
+	}
+	return nil, ErrNotFound
 }
 func (f *fakeHosting) Branch(_ context.Context, name string) (Branch, error) {
 	if f.branch != nil {

@@ -5,7 +5,7 @@ source_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/pmtool-release-test.XXXXXX")
 trap 'rm -rf -- "$scratch"' EXIT HUP INT TERM
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE MAKEFLAGS MFLAGS MAKELEVEL CI_ARTIFACT_ROOT CI_ARTIFACT_DIR CI_RUN_FILE
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE MAKEFLAGS MFLAGS MAKELEVEL CI_ARTIFACT_ROOT CI_ARTIFACT_DIR CI_RUN_FILE MESSAGE REF RUN_ID WATCH FAILED_ONLY TAIL JOB
 
 fail() {
   printf '[FAIL] %s\n' "$*" >&2
@@ -67,6 +67,7 @@ case "$1 $2" in
   'repo view') printf 'https://github.com/example/release-fixture\n' ;;
   'run list')
     test "${PMTOOL_TEST_QUERY_FAIL:-0}" = 0 || exit 1
+    test "${PMTOOL_TEST_NO_RUN:-0}" = 0 || exit 0
     printf '123\n'
     ;;
   'run watch')
@@ -80,6 +81,29 @@ case "$1 $2" in
     ;;
   'run view')
     test "$3" = 123 || exit 1
+    case " $* " in
+      *' --json jobs '*)
+        if [ "${PMTOOL_TEST_WRONG_JOB:-0}" = 1 ]; then printf 'false\n'; else printf 'true\n'; fi
+        exit 0
+        ;;
+      *' --log-failed '*|*' --log '*)
+        test "${PMTOOL_TEST_LOG_FAIL:-0}" = 0 || exit 1
+        printf 'fixture log line 1\nfixture log line 2\nfixture log line 3\n'
+        exit 0
+        ;;
+      *' --json headSha,headBranch,event '*)
+        ref=${REF:-$(git branch --show-current)}
+        sha=$(git rev-parse "$ref^{commit}")
+        if [ "${PMTOOL_TEST_WRONG_SHA:-0}" = 1 ]; then sha=wrong; fi
+        printf '%s\t%s\tpush\n' "$sha" "$ref"
+        exit 0
+        ;;
+      *' --exit-status '*)
+        printf 'build job: fixture\n'
+        test "${PMTOOL_TEST_CI_FAIL:-0}" = 0
+        exit
+        ;;
+    esac
     sha=$(git rev-parse HEAD)
     if [ "${PMTOOL_TEST_WRONG_SHA:-0}" = 1 ]; then sha=wrong; fi
     conclusion=success
@@ -121,6 +145,50 @@ BINARY
       rm "$destination/pmtool-dev-$head-linux-amd64"
       ln -s /bin/false "$destination/pmtool-dev-$head-linux-amd64"
     fi
+    ;;
+  'pr list')
+    if [ "${PMTOOL_TEST_MULTIPLE_PRS:-0}" = 1 ]; then printf '77\n78\n'; exit 0; fi
+    if [ -f .git/source-pr-state ] && [ "$(cat .git/source-pr-state)" = OPEN ]; then printf '77\n'; fi
+    ;;
+  'pr create')
+    test "${PMTOOL_TEST_PR_CREATE_FAIL:-0}" = 0 || exit 1
+    shift 2
+    branch=; body=
+    while [ "$#" -gt 0 ]; do
+      case "$1" in --head) shift; branch=$1 ;; --body-file) shift; body=$1 ;; esac
+      shift
+    done
+    test -n "$branch" && test -s "$body" || exit 2
+    cp "$body" .git/source-pr-body
+    printf '%s\n' "$branch" > .git/source-pr-branch
+    git rev-parse HEAD > .git/source-pr-sha
+    printf 'OPEN\n' > .git/source-pr-state
+    printf 'created\n' >> .git/source-pr-created
+    printf 'https://github.com/example/release-fixture/pull/77\n'
+    ;;
+  'pr view')
+    test "$3" = 77 || exit 2
+    branch=$(cat .git/source-pr-branch)
+    sha=$(cat .git/source-pr-sha)
+    if [ "${PMTOOL_TEST_PR_WRONG_SHA:-0}" = 1 ]; then sha=changed; fi
+    printf '%s\t%s\tmain\t%s\n' "$(cat .git/source-pr-state)" "$branch" "$sha"
+    ;;
+  'pr merge')
+    test "$3" = 77 || exit 2
+    shift 3
+    pinned=
+    while [ "$#" -gt 0 ]; do
+      if [ "$1" = --match-head-commit ]; then shift; pinned=$1; fi
+      shift
+    done
+    head=$(cat .git/source-pr-sha)
+    test "$pinned" = "$head" || exit 2
+    remote=$(git config --get remote.origin.url)
+    main=$(git --git-dir="$remote" rev-parse refs/heads/main)
+    tree=$(git rev-parse "$head^{tree}")
+    merged=$(printf 'Merge source PR\n' | git --git-dir="$remote" -c user.name=Fixture -c user.email=fixture@example.invalid commit-tree "$tree" -p "$main" -p "$head")
+    git --git-dir="$remote" update-ref refs/heads/main "$merged" "$main"
+    printf 'MERGED\n' > .git/source-pr-state
     ;;
   *) exit 2 ;;
 esac
@@ -189,6 +257,9 @@ git tag -a unrelated -m unrelated
 run_make push-main || { cat "$case_root/output" >&2; fail 'candidate failed'; }
 no_tag
 run_make release-artifacts-check || { cat "$case_root/output" >&2; fail 'candidate verification failed'; }
+before=$(git show-ref)
+run_make release-tag-noop || { cat "$case_root/output" >&2; fail 'tag preview failed'; }
+test "$(git show-ref)" = "$before" || fail 'tag preview changed refs'
 run_make push-release || { cat "$case_root/output" >&2; fail 'release failed'; }
 test "$(git cat-file -t refs/tags/v1.0.0)" = tag || fail 'tag is not annotated'
 test "$(git rev-parse "v1.0.0^{commit}")" = "$(git rev-parse HEAD)" || fail 'wrong tag SHA'
@@ -307,4 +378,168 @@ git push --quiet origin HEAD:refs/heads/main
 refused 'Verified CI artifacts are missing' push-release
 no_tag
 
+source_setup() {
+  setup "$1"
+  git push --quiet origin main
+}
+
+source_edit() {
+  printf '# Changelog\n\n## Unreleased\n\n- Fixture release notes.\n\n## Release 1.0.0\n' > CHANGELOG.md
+  printf 'fixture source change\n' > feature.txt
+}
+
+source_submit() {
+  run_make release-prepare VERSION=v1.0.1 || { cat "$case_root/output" >&2; fail 'source prepare failed'; }
+  source_edit
+  run_make release-submit VERSION=v1.0.1 'MESSAGE=Implement source fixture' || { cat "$case_root/output" >&2; fail 'source submit failed'; }
+}
+
+source_setup source-prepare-preview
+before=$(git show-ref)
+run_make release-prepare-noop VERSION=v1.0.1 || fail 'source preview failed'
+test "$(git show-ref)" = "$before" && test "$(git branch --show-current)" = main || fail 'prepare preview mutated refs'
+test -z "$(git status --porcelain)" || fail 'prepare preview changed worktree'
+refused 'exceed the main changelog' release-prepare-noop VERSION=v1.0.0
+run_make release-prepare VERSION=v1.0.1 || fail 'source prepare failed'
+test "$(git branch --show-current)" = release/1.0.1 || fail 'wrong source release branch'
+refused 'already exists locally' release-prepare VERSION=v1.0.1
+test "$(git branch --show-current)" = release/1.0.1 || fail 'duplicate prepare switched branches'
+no_tag
+
+source_setup source-dirty-prepare
+printf preserved > unreviewed.txt
+refused 'Working tree is dirty' release-prepare VERSION=v1.0.1
+test "$(git branch --show-current)" = main && test -f unreviewed.txt || fail 'dirty prepare discarded work'
+
+source_setup source-credential-origin
+git remote set-url origin https://user:fixture-secret@github.com/example/release-fixture.git
+refused 'credential-free configured origin' source-origin
+if grep -Fq fixture-secret "$case_root/output"; then fail 'source origin rejection exposed a password'; fi
+
+source_setup source-empty-second-origin
+git config --local --add remote.origin.url ''
+refused 'Exactly one configured origin URL' source-origin
+
+source_setup source-unmerged-main-sync
+git switch --quiet -c feature
+git commit --quiet --allow-empty -m unmerged
+head=$(git rev-parse HEAD)
+refused 'HEAD has commits outside origin/main' main-sync
+test "$(git rev-parse HEAD)" = "$head" && test "$(git branch --show-current)" = feature || fail 'main sync lost unmerged commits'
+
+source_setup source-combined-submit
+run_make release-prepare VERSION=v1.0.1 || fail 'source prepare failed'
+source_edit
+before=$(git show-ref)
+index_before=$(git write-tree)
+run_make release-submit-noop VERSION=v1.0.1 || fail 'source submit preview failed'
+test "$(git show-ref)" = "$before" && test "$(git write-tree)" = "$index_before" || fail 'submit preview staged or committed'
+git tag -a unrelated -m unrelated
+git config push.followTags true
+run_make release-submit VERSION=v1.0.1 'MESSAGE=Implement source fixture' || { cat "$case_root/output" >&2; fail 'combined submit failed'; }
+test "$(git log -1 --format=%s)" = 'chore(release): prepare v1.0.1' || fail 'missing separate preparation commit'
+test "$(git log -1 --format=%s HEAD^)" = 'Implement source fixture' || fail 'implementation and preparation were combined'
+test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = CHANGELOG.md || fail 'preparation committed more than changelog'
+test "$(git diff HEAD^ HEAD -- CHANGELOG.md | grep -c '^+## Release 1.0.1$')" = 1 || fail 'preparation did not finalize release heading'
+test ! -e VERSION || fail 'source submission added a VERSION file'
+test -z "$(git ls-remote --tags origin)" || fail 'source submission pushed unrelated tags'
+submitted=$(git rev-parse HEAD)
+run_make release-submit VERSION=v1.0.1 || fail 'clean prepared submit could not resume'
+test "$(git rev-parse HEAD)" = "$submitted" || fail 'resuming submit created duplicate commits'
+printf correction >> feature.txt
+run_make release-submit VERSION=v1.0.1 'MESSAGE=Correct source fixture' || fail 'same-version corrective commit was refused'
+test "$(git log -1 --format=%s)" = 'Correct source fixture' || fail 'corrective commit was replaced by an empty preparation'
+
+refs_before=$(git show-ref)
+remote_before=$(git ls-remote --heads --tags origin)
+run_make release-push-noop VERSION=v1.0.1 || fail 'source push preview failed'
+run_make pipeline-jobs WATCH=5 || { cat "$case_root/output" >&2; fail 'pipeline jobs/watch failed'; }
+run_make pipeline-logs TAIL=1 || fail 'pipeline logs failed'
+grep -Fq 'fixture log line 3' "$case_root/output" || fail 'log tail omitted last line'
+if grep -Fq 'fixture log line 1' "$case_root/output"; then fail 'log tail limit was ignored'; fi
+run_make pipeline-logs FAILED_ONLY=0 JOB=456 RUN_ID=123 || fail 'explicit source run/job logs failed'
+export PMTOOL_TEST_WRONG_JOB=1
+refused 'JOB does not belong' pipeline-logs JOB=999
+unset PMTOOL_TEST_WRONG_JOB
+refused 'TAIL must' pipeline-logs TAIL=0
+refused 'WATCH must' pipeline-jobs WATCH=bad
+export PMTOOL_TEST_WRONG_SHA=1
+refused 'Pipeline SHA, ref or event differs' pipeline-jobs
+unset PMTOOL_TEST_WRONG_SHA
+export PMTOOL_TEST_LOG_FAIL=1
+refused 'Error' pipeline-logs
+unset PMTOOL_TEST_LOG_FAIL
+export PMTOOL_TEST_NO_RUN=1
+refused 'No valid matching push workflow' pipeline-jobs
+unset PMTOOL_TEST_NO_RUN
+test "$(git show-ref)" = "$refs_before" && test "$(git ls-remote --heads --tags origin)" = "$remote_before" || fail 'reading pipelines/logs mutated refs'
+
+export PMTOOL_TEST_CI_FAIL=1
+refused 'Error' mr VERSION=v1.0.1
+unset PMTOOL_TEST_CI_FAIL
+test "$(cat .git/source-pr-state)" = OPEN || fail 'failed CI merged the PR'
+test "$(git ls-remote --heads --tags origin)" = "$remote_before" || fail 'failed PR CI mutated remote refs'
+run_make mr VERSION=v1.0.1 || { cat "$case_root/output" >&2; fail 'source PR/merge/main/artifacts failed'; }
+test "$(cat .git/source-pr-state)" = MERGED && test "$(git branch --show-current)" = main || fail 'PR merge did not synchronize main'
+test "$(wc -l < .git/source-pr-created | tr -d ' ')" = 1 || fail 'retry duplicated an open PR'
+grep -Fq 'Fixture release notes.' .git/source-pr-body || fail 'source PR description omitted release notes'
+main=$(git rev-parse HEAD)
+test "$main" = "$(git ls-remote --heads origin refs/heads/main | awk '{print $1}')" || fail 'source main diverged after merge'
+test -f "dist/ci/$main/.workflow-run-id" || fail 'combined MR omitted main CI artifacts'
+test -z "$(git ls-remote --tags origin)" || fail 'source MR published a tag'
+
+source_setup source-submit-push-failure
+run_make release-prepare VERSION=v1.0.1 || fail 'source prepare failed'
+source_edit
+cat > "$case_root/remote.git/hooks/pre-receive" <<'HOOK'
+#!/bin/sh
+set -eu
+while read -r old new ref; do
+  case "$ref" in refs/heads/release/*) exit 1 ;; esac
+done
+HOOK
+chmod +x "$case_root/remote.git/hooks/pre-receive"
+refused 'Commit preserved' release-submit VERSION=v1.0.1 'MESSAGE=Preserve source fixture'
+head=$(git rev-parse HEAD)
+test "$(git log -1 --format=%s)" = 'chore(release): prepare v1.0.1' || fail 'push failure lost preparation commit'
+rm "$case_root/remote.git/hooks/pre-receive"
+run_make release-submit VERSION=v1.0.1 || fail 'source submit retry failed'
+test "$(git rev-parse HEAD)" = "$head" || fail 'source submit retry rewrote commits'
+
+source_setup source-pr-head-changed
+source_submit
+before=$(git ls-remote --heads --tags origin)
+export PMTOOL_TEST_PR_WRONG_SHA=1
+refused 'Release PR state, branch, base or SHA changed' mr VERSION=v1.0.1
+unset PMTOOL_TEST_PR_WRONG_SHA
+test "$(git ls-remote --heads --tags origin)" = "$before" && test "$(cat .git/source-pr-state)" = OPEN || fail 'changed PR SHA was merged'
+
+source_setup source-multiple-prs
+source_submit
+export PMTOOL_TEST_MULTIPLE_PRS=1
+refused 'exactly one open release PR' mr VERSION=v1.0.1
+unset PMTOOL_TEST_MULTIPLE_PRS
+test ! -e .git/source-pr-created || fail 'ambiguous PR query created another request'
+
+source_setup source-duplicate-notes
+run_make release-prepare VERSION=v1.0.1 || fail 'source prepare failed'
+printf '# Changelog\n\n## Unreleased\n\n## Unreleased\n\n## Release 1.0.0\n' > CHANGELOG.md
+git add CHANGELOG.md
+git commit --quiet -m duplicate-notes
+head=$(git rev-parse HEAD)
+refused 'Exactly one Unreleased heading' release-finalize VERSION=v1.0.1
+test "$(git rev-parse HEAD)" = "$head" && test -z "$(git status --porcelain)" || fail 'refused finalization changed files or commits'
+
+source_setup source-artifact-failure-after-merge
+source_submit
+export PMTOOL_TEST_DOWNLOAD_FAIL=1
+refused 'Merge and synchronized main are preserved' mr VERSION=v1.0.1
+unset PMTOOL_TEST_DOWNLOAD_FAIL
+test "$(cat .git/source-pr-state)" = MERGED && test "$(git branch --show-current)" = main || fail 'artifact failure lost merged state'
+refs_before=$(git ls-remote --heads --tags origin)
+run_make ci-artifacts || fail 'artifact recovery after merge failed'
+test "$(git ls-remote --heads --tags origin)" = "$refs_before" || fail 'artifact recovery changed refs'
+test "$(wc -l < .git/source-pr-created | tr -d ' ')" = 1 || fail 'artifact recovery duplicated the PR'
+
+printf '[OK] Source branches, separate preparation, submission, PR and pipeline/log regressions passed\n'
 printf '[OK] Source release target and commit-artifact regressions passed\n'

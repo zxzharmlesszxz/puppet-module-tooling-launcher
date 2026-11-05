@@ -174,7 +174,7 @@ func Extract(data []byte, root string) error {
 	}
 }
 func RunGit(ctx context.Context, root string, c Credentials, args ...string) (output []byte, caught error) {
-	base := []string{"-c", "credential.helper=", "-c", "core.hooksPath=/dev/null", "-c", "protocol.file.allow=never", "-c", "http.followRedirects=false", "-c", "credential.useHttpPath=true", "-C", root}
+	base := []string{"-c", "credential.helper=", "-c", "core.askPass=", "-c", "core.hooksPath=/dev/null", "-c", "protocol.file.allow=never", "-c", "http.followRedirects=false", "-c", "credential.useHttpPath=true", "-C", root}
 	environment := cleanEnvironment()
 	var helper string
 	if c.Token != "" {
@@ -233,7 +233,7 @@ func cleanEnvironment() []string {
 		}
 		result = append(result, v)
 	}
-	return append(result, "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_COUNT=0", "GIT_ASKPASS=/bin/false", "SSH_ASKPASS=/bin/false", "GIT_TERMINAL_PROMPT=0")
+	return append(result, "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_COUNT=0", "GIT_ASKPASS=", "SSH_ASKPASS=", "GIT_TERMINAL_PROMPT=0")
 }
 
 //go:embed assets/credential_helper.sh

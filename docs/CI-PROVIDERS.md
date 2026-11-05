@@ -1,6 +1,6 @@
 # GitLab and GitHub CI
 
-One launcher and runtime support GitLab and GitHub. Commands operate on the mounted
+One launcher and runtime support GitLab and GitHub. Commands operate on the selected local
 module clone; repository identity and hosting server come from its `origin`.
 `mr`, `mr-create` and `mr-merge` keep their names on both providers and operate on
 GitHub pull requests when GitHub is selected. No second launcher is required.
@@ -44,6 +44,18 @@ by the runtime, preserving isolation of provider credentials.
 the compatibility default. For GitHub Enterprise use `--provider github` consistently
 or set `ci.provider: github` in `.sync.yml`. Explicit CLI selection wins.
 
+Host Git/API commands require the current repository basename `puppet-<module>`,
+with lifecycle metadata naming the same module after its owner prefix. This is
+a current host-workflow restriction, independent of the selected template.
+
+Identity is read from exactly one repository-local `remote.origin.url`. Runner
+`url.*.insteadOf` rules, including external configuration through `include.path`,
+remain transport configuration. Provider selection and release guards use the
+configured URL without rewriting it or removing runner authentication settings.
+The stored URL must still be credential-free, with no query/fragment or embedded
+line breaks. Multiple URLs are rejected. CI templates must normalize origin if
+the runner writes its token directly into that URL before pmtool runs.
+
 ```sh
 pmtool mr --provider github --module /absolute/module
 ```
@@ -53,10 +65,15 @@ GitHub uses `GITHUB_TOKEN`, with optional `GITHUB_API_URL`. The GitHub API defau
 to `https://api.github.com` or `https://<enterprise-host>/api/v3`; an override must
 remain on the origin server. SSH ports are never reused as API ports.
 
-The launcher forwards only the selected provider's token, by environment variable
-name. Token values are absent from argv, config, hints and dry-run output. Local
-sync/audit/tests receive no token; remote commands receive no Docker socket.
-Git uses noninteractive HTTPS askpass with the selected provider's credentials.
+Module API/Git operations use only the selected provider token. Token values are
+absent from argv, config, hints and dry-run output. Template fetch uses its separate
+host/repository-scoped template token; ERB, audit scripts and validation subprocesses
+receive neither provider nor template credentials. Host API steps use no Docker socket.
+pmtool constructs remote module URLs as HTTP(S), including for SSH/SCP origin
+identity, and supplies the selected provider credentials through noninteractive
+askpass. Host Git transport rewrites remain effective and can select another
+transport. pmtool provides no template SSH fetching or SSH-key mount/forwarding
+mechanism for tool containers.
 
 GitHub permissions depend on the operation: Actions read for observing CI, contents
 read/write for Git, pull requests write plus contents write for merging, workflows
@@ -76,17 +93,18 @@ checks for PR events. GitHub requires the reusable workflow under `.github/workf
 and `workflow_call`; see [reusable workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows).
 The caller passes only `FORGE_URL` and `FORGE_PUBLISH_TOKEN` to the reusable workflow.
 
-The Example template repository contains both `ci/puppet-module.yml` and
-`.github/workflows/puppet-module.yml`. To use Actions, publish the workflow in the
-chosen GitHub CI repository and select its actual version; this change does not
-create a repository, mirror, tag, GitHub ruleset or remote secret automatically.
-The supplied workflow uses Ubuntu Docker-capable runners; Enterprise teams need
-to adapt `runs-on` in their shared workflow for available self-hosted runners.
+A template may supply both `ci/puppet-module.yml` and
+`.github/workflows/puppet-module.yml`. Publish the selected CI package before
+referencing it. This does not create repositories, mirrors, tags, protection
+rules or secrets. The generated starter uses Ubuntu runners for GitHub; adapt
+`runs-on` in the published workflow when using self-hosted runners.
 
-Branch pushes run PDK validation/unit and VoxBox validation/specs. Tag pushes verify
-the protected metadata-matching tag, current main SHA and the successful main
-workflow plus all four validation jobs. Release/changelog checks follow the gate;
-Forge publishing follows those checks. Configure Forge secrets on consuming repositories.
+The validation starter runs audit, PDK validation/unit and VoxBox validation/specs
+on branch pushes. It supplies no Forge publication. A production team workflow
+should verify protected metadata-matching tags against current main and successful
+required main jobs for that exact SHA, then perform release checks and publish
+through a real forge-publish job. Configure the required protected Forge secrets
+on consuming repositories; selecting a provider does not create those gates.
 Changing providers does not silently remove existing CI files; inspect and migrate
 the old CI configuration explicitly, and review all sync conflicts before replacement.
 
@@ -116,9 +134,9 @@ and remote-lease guards. No historical tag cleanup is introduced.
 
 ## Module template selection
 
-The launcher and container are separate repositories. Teams publish their own
-template packages on compatible Git hosts. The container has no bundled team
-template. The repository/version below is illustrative:
+pmtool ships workflow code; the pinned upstream tools image supplies dependencies.
+There is no custom runtime repository or bundled team template. Teams publish
+their own template packages on compatible Git hosts. The repository/version below is illustrative:
 
 ```yaml
 template:
@@ -129,8 +147,9 @@ CI priority: **CLI --ci → module .sync.yml ci.use → selected template.yml ci
 The template's CI is pinned to the same resolved commit SHA as its files and audit
 policy. Provider priority remains CLI --provider → ci.provider → module origin.
 Use --template for an invocation-specific template override. Host config.json
-contains image/docker/socket only. The offline settings query reads module YAML
-without tokens, socket, template fetching or evaluation; the actual operation
+contains image/docker and a legacy unused socket field only. The offline settings
+query reads module YAML and configured origin through host Git, without API calls,
+tokens, template fetching or evaluation; the actual operation
 loads the selected package and resolves its default CI.
 
 The template manifest declares provider-specific entrypoints:
@@ -177,9 +196,35 @@ VoxBox jobs use the corresponding voxbox command. Audit uses the tool-only SDK
 image; release checks use VoxBox. No Docker daemon/socket or source helper install
 is needed in these jobs. The image must already contain the selected tools.
 
-The team template's reusable CI can share one launcher installation include.
-Its PMTOOL_VERSION and PMTOOL_RELEASE_BASE select the public release. Configure
-TOOLING_IMAGE for audit/template-test jobs. Private template reads require explicit
+A team template can define its own shared installation include and variables
+such as PMTOOL_VERSION, PMTOOL_RELEASE_BASE and TOOLING_IMAGE. These names are not
+universal pmtool runtime settings. The generated starter instead embeds the
+selected launcher release/download URL and compiled SDK image pins in its YAML;
+edit/version that generated CI when changing them. In the launcher source
+Actions workflow, vars.TOOLING_IMAGE selects WORKFLOW_IMAGE for SDK regressions
+only, independently of the IMAGE value compiled into release binaries.
+Private template reads require explicit
 host-scoped template credentials. When using GitLab CI_JOB_TOKEN, configure the
 template repository's inbound job-token allowlist and use gitlab-ci-token as the
 username; do not assume access merely because both projects are on one server.
+
+## Logs and generated validation CI
+
+`pmtool pipeline-logs` supports GitLab job traces and GitHub Actions job logs.
+Select --ref or --pipeline ID, optionally --job ID, --failed and --tail (default
+100, 0 full bounded output). --output exclusively creates a new private file.
+Job membership is checked before downloading. GitHub's signed HTTPS log redirect
+is downloaded without provider headers/cookies; general API redirects remain
+refused. Redaction covers known launcher tokens, not arbitrary CI secrets.
+See [log selection and limits](manual.md#pipeline-logs). Failed CI in mr/release-tag
+prints failed-job tails without weakening merge, exact-main or publication gates.
+
+`template-init` generates provider-specific validation YAML and a separate template
+self-test workflow. It has no implicit company runner tags or Forge publishing.
+Private GitLab templates still need CI_JOB_TOKEN inbound authorization. The
+starter GitHub workflow declares optional TOOLING_TEMPLATE_* secrets, but the
+current generated module caller forwards only FORGE_URL/FORGE_PUBLISH_TOKEN.
+Those optional template secrets are not populated automatically: private template
+audit needs explicit credential provisioning in the selected CI environment.
+Do not assume setting repository secrets alone forwards them through this caller. Add protected tag/exact-main checks and an actual
+forge-publish implementation before adopting full release-tag publication.

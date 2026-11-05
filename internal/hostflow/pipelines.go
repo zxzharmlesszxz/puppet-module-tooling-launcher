@@ -105,6 +105,7 @@ func (e *Engine) mainCI(sha string, wait bool) error {
 		waiting = waiting || active(p.Status)
 		if !waiting {
 			if p.Status != "success" {
+				e.failedLogs(p)
 				return fmt.Errorf("main pipeline %d is %s", p.ID, p.Status)
 			}
 			return e.pinMain(sha)
@@ -272,7 +273,11 @@ func (e *Engine) waitPublication(tag, sha, object string) error {
 			return fmt.Errorf("tag pipeline identity changed")
 		}
 		if !active(p.Status) {
-			return e.published(p, true)
+			if err := e.published(p, true); err != nil {
+				e.failedLogs(p)
+				return err
+			}
+			return nil
 		}
 		if err := e.pause(fmt.Sprintf("tag pipeline %d %s", id, p.Status), 5*time.Second); err != nil {
 			return err
@@ -316,7 +321,7 @@ func (e *Engine) pipelineJobs(o Options) error {
 			return err
 		}
 		for _, job := range jobs {
-			e.row("%s %s %s", job.Name, job.Status, job.URL)
+			e.row("job %d %s %s %s", job.ID, job.Name, job.Status, job.URL)
 		}
 		if !active(p.Status) {
 			if p.Status != "success" {
@@ -413,6 +418,7 @@ func (e *Engine) request(o Options, create, merge bool) error {
 		}
 		if !active(p.Status) {
 			if p.Status != "success" {
+				e.failedLogs(p)
 				return fmt.Errorf("source pipeline %d is %s", p.ID, p.Status)
 			}
 			break

@@ -4,6 +4,39 @@ The toolkit supplies lifecycle, rendering, safe file updates and audit dispatch.
 A selected template supplies the generated baseline, contract selection and audit
 policy. Hosting providers and reusable CI are configured independently.
 
+## Create a template
+
+```sh
+pmtool template-init --name team_template --output ./new-template --provider both
+pmtool template-test --module ./new-template
+```
+
+Generation is offline and needs no module, Git, image config or Docker. The new
+directory contains `template.yml`, defaults, a configurable `.editorconfig` ERB,
+`test/run.rb`, `docs/SCHEMA.md`, changelog and selected provider CI. Use gitlab,
+github or both; both is the default. Its parent must exist without symlink
+components. Existing destinations are refused; --dry-run lists planned files only
+and does not preflight destination availability. New directories/files use
+0700/0600. A write failure can leave an incomplete new tree; inspect it before
+cleanup or generate into a fresh destination.
+
+The generated package is a neutral validation starter. It does not pretend to
+provide team contracts, entity spec inventory, 100% Puppet coverage or Forge
+publication. Add and test those policies explicitly. Generated branch CI runs
+audit and PDK/VoxBox validation/unit; template self-tests have their own workflow.
+There are no duplicate MR/PR jobs, custom runner tags, nested Docker or socket mounts.
+Review runner requirements, private-template credentials and protected release
+policy before adoption. Add actual protected-tag/exact-main checks and a working
+forge-publish job before using the full module release workflow.
+
+CI pins the generating stable launcher and verifies downloaded binaries against
+SHA256SUMS. Development builds require --launcher-version naming a published
+stable release. PDK bootstrap uses its newest bundled Ruby; VoxBox uses PATH Ruby.
+Generated self-tests render and check temporary baseline integrity via pmtool,
+then assert the JSON fixture in Ruby; they never import launcher implementation files. Add behavioral
+regressions as team helpers grow. Validate both provider variants when publishing
+an updated starter. Git initialization, commits, tags and pushes remain explicit.
+
 ## Select a template
 
 Track the selected package in module `.sync.yml`. After publishing the version:
@@ -22,8 +55,9 @@ Tags can move; a full SHA pins an immutable revision.
 The Go engine fetches the exact tag/SHA into a temporary directory and removes it
 afterwards. Archive links, devices and traversal paths are rejected. No fleet,
 local template cache or team checkout is needed. The offline launcher `settings`
-query only safe-loads `.sync.yml`; the actual sync/audit operation fetches and
-evaluates the selected package.
+query reads `.sync.yml` and uses host Git for configured-origin/provider
+inference, without API access or template evaluation. Sync/audit fetch and evaluate
+the selected package.
 
 Templates contain ERB and executable audit scripts. Select reviewed, trusted
 versions. A repository reference is not a sandbox for untrusted template code.
@@ -47,18 +81,19 @@ are independent and are never used as fallback template credentials. Optional
 username; the default is `oauth2` (GitHub also accepts `x-access-token`).
 
 The launcher catalog grants `template_token` only to `sync`, `sync-noop`, `audit`
-and `check` (and their compatibility aliases). The launcher passes credential
-variable names only when the selected template's host matches the configured host;
-another team's host remains anonymous. Metadata, `settings`, PDK/VoxBox-only and
-module API/release commands receive no template credentials. Update launcher and
-image together when adopting the new manifest permission.
+and `check` (and their compatibility aliases). Template fetch authenticates only the exact configured host/repository.
+A configured token with a mismatching host fails explicitly; it does not silently
+fall back to anonymous access. With no template token, checkout is anonymous. Metadata, `settings`, PDK/VoxBox-only and
+module API/release clients do not use template credentials. Permissions and the
+command catalog ship with pmtool; adopting a launcher change does not require
+rebuilding an upstream tools image.
 
 The Git helper answers only `get` requests for HTTPS and the exact selected
 host/repository path. It ignores `store`/`erase`, disables redirects, host credential
 helpers/hooks and Git credential tracing, and does not persist the token. Use the
-canonical repository address if a server redirects it. Raw Docker callers pass
-the same three variables by name to template-fetching commands only; a mismatched
-host is rejected. Credentials are removed from the template evaluation environment
+canonical repository address if a server redirects it. Template fetching runs
+in host Go/Git, not inside the tools container; configure its scoped credentials
+in the launcher environment. Credentials are removed from the template evaluation environment
 and from audit-script child environments; Git errors redact raw, URL-encoded and
 Basic-auth forms. Templates remain trusted executable code, not a sandbox.
 
@@ -80,7 +115,9 @@ moduleroot/
 
 Each defaults key names an output path with an `.erb` source under `files_root`.
 `%{namespace}` is substituted in output paths using the module metadata name.
-ERB receives `@configs` (merged per-file defaults/overrides) and `@metadata`.
+ERB receives `@configs` and `@metadata`. Per-file defaults and module overrides
+merge by top-level key: nested mappings and arrays are replaced, not deep-merged.
+This is template-rendering configuration, independent of Puppet Hiera merge policy.
 Module files outside the managed defaults remain module-owned.
 
 Minimal manifest with a package contract and a team audit script:
@@ -128,7 +165,7 @@ are supplied to template-owned checkers. Excluded groups generate no files.
 To use only system repositories, publish/select a profile without the repository
 group in `contracts`, rather than adding `repository: false` to every module.
 Templates may expose existing group switches with `allow_contract_overrides: true`;
-it defaults to false. The separate Example package explicitly retains this compatibility.
+it defaults to false. A team profile can explicitly retain this compatibility.
 Domain references to disabled contracts must be removed in module code separately.
 
 ## Audit policy
@@ -152,8 +189,8 @@ audit:
 
 That helper's defaults must enable reporting and set the exact threshold.
 The helper must implement measurement/enforcement; the engine checks configuration
-and baseline integrity. The separate Example package includes its existing resource coverage helper,
-spec inventory and contract usage checks, preserving 100% Puppet resource coverage.
+and baseline integrity. Team packages can supply resource coverage, spec inventory and contract usage
+helpers. The generated starter supplies none of those checks by default.
 Another team can supply different helpers and policies without changing toolkit code.
 
 Each `checks` item names a managed script, a display name and `runtime: ruby` or
@@ -211,10 +248,14 @@ GitHub uses a reusable workflow on the same GitHub server, under .github/workflo
 at repository root. A template in a subdirectory cannot place its reusable GitHub
 workflow under that subdirectory: use a root template package or explicit --ci.
 Other cross-server combinations are refused instead of producing an invalid caller.
+The generated GitHub caller forwards Forge secrets only. Optional template secrets
+declared by the starter are not automatically passed; private-template audit
+needs explicit credential provisioning in the selected CI environment.
 
 The launcher settings query remains offline and does not resolve this fallback.
-Only the actual runtime sync/audit command fetches the template. The engine and
-launcher repositories contain no copy of team contracts or reusable CI.
+Only the actual runtime sync/audit command fetches the template. The launcher
+contains no team contracts or deployed CI package. Its neutral starter assets generate an editable validation package; actual team policy stays in its
+versioned repository.
 
 ## Launcher and execution environment
 
@@ -225,6 +266,17 @@ Go starts PDK/VoxBox directly from the host.
 Native CI uses the same plan with preinstalled job tools and no nested Docker.
 The selected team template retains its own contracts/audit policy and CI entrypoints.
 Pin launcher and image versions independently. See [manual](manual.md).
+
+## Template-test provider scope
+
+The smoke test renders one temporary module baseline: GitLab is selected when
+the package declares GitLab CI, otherwise GitHub. It does not automatically run a
+GitLab/GitHub matrix, execute provider-side pipelines or invoke audit.checks
+scripts. Its Go self-check verifies baseline/policy; test/run.rb must exercise
+custom scripts and domain/helper behavior explicitly; validate each CI provider in
+its actual environment before claiming compatibility. The optional team-template
+regression in workflow-check needs PMTOOL_TEST_TEMPLATE inside its SDK process.
+A skipped test does not qualify that external package.
 
 ## Engine and template-test interface
 
@@ -238,7 +290,8 @@ No team contract or audit threshold is hardcoded in the container or Go engine.
 `template-test` renders and checks a temporary module baseline in Go before running
 the template's `test/run.rb`. `PMTOOL_TEMPLATE_FIXTURE` identifies a temporary JSON
 file with `defaults`, `group_order`, `groups`, `contracts`, `allow_contract_overrides`
-and `profile_source`. Group entries contain `targets`, `types` and
+and `profile_source`. Docker mounts this fixture read-only; native execution
+uses ordinary job-user file permissions. Group entries contain `targets`, `types` and
 `legacy_optional_targets`. Tests can load the standalone module-side profile source;
 they must not import launcher implementation files or assume a toolkit install path.
 

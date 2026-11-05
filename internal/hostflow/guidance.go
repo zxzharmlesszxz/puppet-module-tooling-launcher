@@ -72,6 +72,21 @@ func Guidance(o Options, root string, c GuidanceContext, success bool) (string, 
 			flags = []string{"--branch", branch}
 		case "mr", "mr-create":
 			flags = []string{"--branch", branch, "--title", o.Title}
+		case "pipeline-logs":
+			if o.Ref != "" {
+				flags = append(flags, "--ref", o.Ref)
+			}
+			if o.PipelineID != 0 {
+				flags = append(flags, "--pipeline", strconv.FormatInt(o.PipelineID, 10))
+			}
+			if o.JobID != 0 {
+				flags = append(flags, "--job", strconv.FormatInt(o.JobID, 10))
+			}
+			if o.Failed {
+				flags = append(flags, "--failed")
+			}
+			flags = append(flags, "--tail", strconv.Itoa(o.Tail))
+			return "Inspect log access/selection; choose a new output path if the previous file exists:", selected(o.Command, flags...)
 		case "pipeline-jobs":
 			flags = []string{"--ref", o.Ref, "--watch", formatSeconds(o.Watch)}
 		default:
@@ -155,6 +170,8 @@ func Guidance(o Options, root string, c GuidanceContext, success bool) (string, 
 			}
 		}
 		return "Review the work branch and choose its bootstrap or release workflow.", nil
+	case "pipeline-logs":
+		return "Review the selected job logs; fix the cause before retrying the failed operation.", nil
 	case "pipeline-jobs":
 		ref := o.Ref
 		if ref == "" {

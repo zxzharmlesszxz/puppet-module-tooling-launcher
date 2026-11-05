@@ -26,11 +26,11 @@ func (a *app) executeTemplate(cfg config, image string, o operationOptions, kind
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	origin, err := a.driver.capture("git", []string{"-C", o.Module, "remote", "get-url", "origin"})
+	origin, err := a.configuredOrigin(o.Module)
 	if err != nil {
 		return err
 	}
-	host, _, err := hostflow.OriginContext(strings.TrimSpace(string(origin)), selected.Provider)
+	host, _, err := hostflow.OriginContext(origin, selected.Provider)
 	if err != nil {
 		return err
 	}

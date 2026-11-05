@@ -28,7 +28,7 @@ type fakeDriver struct {
 func (d *fakeDriver) capture(name string, args []string) ([]byte, error) {
 	d.calls = append(d.calls, append([]string{name}, args...))
 	if name == "git" {
-		if len(args) >= 3 && args[len(args)-1] == "origin" {
+		if len(args) >= 3 && args[len(args)-1] == "remote.origin.url" {
 			if origin, found := d.origins[args[1]]; found {
 				return []byte(origin), nil
 			}
