@@ -24,8 +24,10 @@ release-prepare → sync → edit → check → release-submit → mr → check 
 - Preparation synchronizes main without reset or stash, rejects divergent history
   and existing local/remote release refs, and requires an increasing X.Y.Z version.
 - Commits include all reviewed changes or an explicit complete file restriction.
-  Release metadata and changelog must both change. Literal paths preserve spaces,
-  Unicode and staged deletions; previews leave the index and HEAD unchanged.
+  Release metadata and changelog must both change. Automatic selection and literal
+  Git paths preserve spaces, Unicode and staged deletions. Explicit --files is an
+  ASCII whitespace-separated restriction covering every change; it cannot represent
+  names containing spaces. Previews leave the index and HEAD unchanged.
 - Branch pushes select one SHA/ref, disable force, mirror and follow-tags, and
   preserve the local commit on failure. Retry `release-push` after fixing the error.
 - MR/PR merge waits for the selected source SHA's push pipeline, rechecks the
@@ -79,12 +81,23 @@ Source Make pipeline-logs is a separate command for launcher-source Actions runs
 
 ## Template generation (1.1.0)
 
-The local template-init command bypasses Git, API, Docker and image config. It
+The local template-init command bypasses API, Docker and image config. It uses
+Git only with explicit --origin URL to initialize main and add the remote locally,
+without commits, tags or network access. Default generation remains Git-free. It
 creates a new directory with a neutral schema-1 validation starter, self-tests,
 authoring docs and selected GitLab/GitHub CI. It refuses existing output and
 symlink parents. This does not install team contracts, coverage enforcement or
 Forge publication. Stable generated CI verifies launcher downloads; dev builds
 need --launcher-version naming a published release. See [template authoring](TEMPLATES.md#create-a-template).
+
+## Explicit Forge upload
+
+forge-publish is a separate Go host operation, not a Git/API lifecycle command.
+It bypasses image/config initialization and rejects --executor native. It validates
+a prebuilt metadata-matching archive before uploading to an explicit HTTPS Forge
+endpoint with an environment token. The uploader itself does not inspect Git, CI or
+tag protection; team CI must enforce those gates before invoking it. It does not
+replace release-tag and its publication wait. See [Forge upload](manual.md#forge-upload).
 
 ## Regression evidence
 
@@ -116,7 +129,8 @@ use the read-only module cache. No linter or coverage threshold is relaxed.
 | Workflow advice, local state, explicit settings and partial-success recovery    | internal/hostflow/guidance_test.go             |
 | Log API/redirect isolation, selection, redaction, output and failed-CI recovery | internal/hostflow/logs_test.go                 |
 | New-template schema/providers, no overwrite and path guards                     | internal/scaffold/generate_test.go             |
-| Local generation/completion, no Git/Docker/config side effects                  | internal/pmtool/template_init_test.go          |
+| Default generation/completion, no Git/Docker/config side effects                | internal/pmtool/template_init_test.go          |
+| Opt-in origin init, unborn main, caller isolation and Git failure recovery      | internal/pmtool/template_repository_test.go    |
 | Validation fail-fast, exit/signal codes, quoting, no SDK/credential hints       | internal/pmtool/regression_workflow_test.go    |
 
 Template regressions are in internal/templatekit: engine_test.go covers conflicts,

@@ -13,7 +13,8 @@ Team templates supply module baselines, contracts and audit policy.
 Install the binary for Linux/macOS, amd64/arm64, as `pmtool`. Docker CLI and a local
 Docker daemon are required for the default Docker validation executor; native CI
 uses preinstalled tools. Git/API and release operations run in
-Go on the host with the installed Git executable. From a module clone:
+Go on the host with the installed Git executable. From an already configured
+module clone with a published template selected in .sync.yml:
 
 ```sh
 pmtool config init
@@ -22,10 +23,12 @@ pmtool check
 
 The default image is `ghcr.io/voxpupuli/voxbox:10.1.0-openvox8@sha256:01bb8ce5e24d5b111934660f75e2786b4d7c7adcaa7518a564856d1d3041d10d`.
 The image in `~/.config/puppet-module-tooling/config.json` selects ERB/audit/template-test
-tools only. PDK and VoxBox validation have separate pins and --pdk-image/--voxbox-image
+tools only. VoxBox validation and jig commands use --voxbox-image/VOXBOX_IMAGE
 overrides; changing config.image does not replace them. Image and launcher versions
 are independent. See [image selectors](docs/manual.md#image-selectors-and-environment).
 Configuration contains host execution settings, never project settings or tokens.
+For an existing module's first onboarding, follow the [bootstrap workflow](docs/MODULE-ONBOARDING.md#3-bootstrap-гілка)
+instead of starting with check against an unsynchronized baseline.
 
 Module settings belong to `.sync.yml`:
 
@@ -74,11 +77,15 @@ pmtool pipeline-logs --ref main --failed --tail 100
 pmtool pipeline-logs --pipeline 123 --job 456 --tail 0 --output ./job.log
 ```
 
-`template-init` is local and needs no module, Docker, network or credentials. The
+`template-init` is local and needs no module, Docker, network or credentials.
+Optional --origin URL initializes Git/main and adds the remote; otherwise Git is
+not required. It never creates a hosted project, commit, tag or push. The
 output directory must be new. Its validation starter is editable and has no team
 contracts or Forge publishing job; see [template authoring](docs/TEMPLATES.md#create-a-template).
 Generated CI pins the stable launcher that generated it; development builds need
-an explicit `--launcher-version vX.Y.Z`.
+an explicit `--launcher-version vX.Y.Z`. Connect the generated package to its
+own origin and publish it before selecting it in modules; see
+[repository setup](docs/TEMPLATES.md#connect-and-publish-the-repository).
 
 `pipeline-logs` uses the current module's provider token and never modifies Git.
 IDs come from `pipeline-jobs`. The default is all selected jobs' last 100 lines;
@@ -96,7 +103,7 @@ scope. Update module metadata/changelog after preparation:
 release-prepare → sync → edit → check → release-submit → mr → check → release-tag
 ```
 
-`check` stops at the first failed audit/PDK/VoxBox/release check. `release-submit`
+`check` stops at the first failed audit/VoxBox/release check. `release-submit`
 commits then pushes; `mr` waits for exact-head CI, merges and synchronizes main;
 `release-tag` waits for exact-main CI, pushes the annotated tag and confirms the
 tag publication job. Optional `*-noop` commands remain explicit previews. Cleanup
@@ -110,25 +117,24 @@ Template checkout, sync, general audit and validation planning also run in Go.
 The pinned tool image runs the JSON/ERB worker and template-owned Puppet/RSpec
 checks. Settings and planning require no Ruby process or helper archive.
 
-PDK/VoxBox containers are started directly by pmtool through the host Docker CLI.
+VoxBox containers are started directly by pmtool through the host Docker CLI.
 The tool environment never receives a Docker socket. Provider tokens, template
 credentials and commit author data are scoped to the individual workflow step;
-PDK/VoxBox steps receive none of them. Secret values are never command arguments.
+VoxBox steps receive none of them. Secret values are never command arguments.
 
 For CI jobs already running in an appropriate tool image, use the same launcher
 plan with the explicit native executor:
 
 ```sh
-pmtool --executor native pdk --stage validate
-pmtool --executor native pdk --stage unit
 pmtool --executor native voxbox
 pmtool --executor native audit
 ```
 
 Native mode uses installed tools and the current user's filesystem/environment;
-it is not a container sandbox. It supports validation and template tests, not
-host Git/API commands. A job image must provide the tools required by its selected
-check; full `check` requires both PDK and VoxBox. See [CI integration](docs/CI-PROVIDERS.md).
+it is not a container sandbox. It supports validation, template tests and
+module-build with installed jig. Host Git/API commands and forge-publish require
+omitting --executor native. A job image must provide the tools required by its selected
+check; full `check` requires the pinned VoxBox tools. See [CI integration](docs/CI-PROVIDERS.md).
 
 ## Repository structure
 
@@ -150,7 +156,7 @@ Dockerfile.checks        developer Go lint/security tool environment
 
 ```sh
 make format
-make build VERSION=v1.1.0
+make build VERSION=v2.0.0
 ```
 
 Build runs Go format/vet/lint/coverage/race checks, security scans, real ERB
@@ -160,25 +166,25 @@ upstream VoxBox release for OpenVox 8. The separate `pmtool-checks` development
 image supplies Go/lint/security tools and is not the module runtime. The launcher source CI repository variable TOOLING_IMAGE overrides WORKFLOW_IMAGE
 for SDK regression tests. It does not change the compiled default selected by IMAGE.
 
-With VERSION=v1.1.0, `dist/v1.1.0/` contains four `pmtool-v1.1.0-<os>-<arch>` binaries, `LICENSE` and
+With VERSION=v2.0.0, `dist/v2.0.0/` contains four `pmtool-v2.0.0-<os>-<arch>` binaries, `LICENSE` and
 `SHA256SUMS`. `IMAGE` sets the tool image default compiled into the binary.
 
 Source releases use Git and GitHub CLI through Make targets. Start from clean main:
 
 ```sh
-make release-prepare VERSION=v1.2.3
+make release-prepare VERSION=v2.0.0
 ```
 
 After editing code and `## Unreleased` notes:
 
 ```sh
 make check
-make release-submit VERSION=v1.2.3 MESSAGE='Describe the implementation'
-make mr VERSION=v1.2.3
+make release-submit VERSION=v2.0.0 MESSAGE='Describe the implementation'
+make mr VERSION=v2.0.0
 ```
 
 Submission creates the implementation commit, a separate `chore(release): prepare
-v1.2.3` commit that only finalizes the changelog heading, and pushes the branch
+v2.0.0` commit that only finalizes the changelog heading, and pushes the branch
 without tags. `mr` creates/reuses the PR, waits for exact-head push CI, merges that
 SHA, synchronizes main and downloads/verifies its commit CI artifacts.
 There is no VERSION file. Corrective commits on an unmerged release branch keep
@@ -200,7 +206,7 @@ Test the downloaded native binary under `dist/ci/<SHA>/` with your template/modu
 Then publish the reviewed version:
 
 ```sh
-make push-release VERSION=v1.2.3
+make push-release VERSION=v2.0.0
 ```
 
 The artifact gate, local preflight, exact-main checks, immutable annotated tag and
@@ -226,3 +232,15 @@ command. Our Go/source security checks remain mandatory. The active
 VoxBox bundle/lock are preserved for template tests. Stock VoxBox is the default
 runtime; tests and releases do not build or publish a custom runtime image.
 See [evaluation details](docs/DEVELOPMENT.md#stock-voxbox-compatibility-evaluation).
+
+Module scaffolding and packages use jig through module-new/module-convert/module-build.
+Forge publication uses the Go forge-publish command with an explicit HTTPS endpoint
+and environment token; team CI keeps its protected-tag/exact-main gates.
+See [module commands](docs/manual.md#module-scaffolding-conversion-and-packages).
+
+## Version 2 migration
+
+PDK commands, aliases and image selectors are removed. Review the [upgrade guide](docs/manual.md#upgrading-to-20)
+and publish/update your team's CI template before rolling v2 out to modules.
+The Go module uses the /v2 suffix; binary/repository/download names remain pmtool
+and puppet-module-tooling-launcher. Released v1 tags remain immutable.

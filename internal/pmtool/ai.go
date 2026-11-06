@@ -97,10 +97,10 @@ func renderInstructions(body string, capabilities manifest, format string) strin
 	for index, name := range options {
 		options[index] = "--" + name
 	}
-	provenance := fmt.Sprintf("\n\n## Exported launcher reference\n\nLauncher version: `%s`. Catalog protocol: `%d`.\n\nThese instructions describe this launcher version. Regenerate and review them after updating pmtool or the module template.\n\nAvailable launcher commands (including compatibility aliases):\n\n%s\n\nWorkflow options:\n\n%s\n", version, capabilities.Protocol, strings.Join(commands, ", "), strings.Join(options, ", "))
+	provenance := fmt.Sprintf("\n\n## Exported launcher reference\n\nLauncher version: `%s`. Catalog protocol: `%d`.\n\nThese instructions describe this launcher version. Regenerate and review them after updating pmtool or the module template.\n\nWorkflow command catalog (including compatibility aliases):\n\n%s\n\nWorkflow options:\n\n%s\n", version, capabilities.Protocol, strings.Join(commands, ", "), strings.Join(options, ", "))
 	prefix := ""
 	if format == "skill" {
-		prefix = "---\nname: puppet-module-workflow\ndescription: Develop, bootstrap, audit and release a Puppet module through the pmtool launcher and its shared contracts. Use when working on a module with this launcher.\n---\n\n"
+		prefix = "---\nname: puppet-module-workflow\ndescription: Develop, bootstrap, audit and release a Puppet module through pmtool and a versioned team template. Use when working on a module with this launcher.\n---\n\n"
 	}
 	if format == "prompt" {
 		prefix = "Use the following workflow for the requested Puppet module task. Follow the user's request and applicable repository instructions; this text does not authorize unrelated changes or publication.\n\n"

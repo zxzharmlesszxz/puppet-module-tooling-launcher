@@ -9,6 +9,9 @@ commits, remote changes or publication.
 - Follow the user's execution policy. If the user runs local commands/tests,
   provide one next command and wait for its output. Never claim an unrun check,
   green pipeline or successful Forge publication.
+- Inspect broad RuboCop exclusions such as spec/**/* before trusting a module check.
+  Template changes require lint of rendered Ruby under supported module styles;
+  do not silence failures with blanket exclusions or rewrite managed output by hand.
 - Preserve unrelated work, staging and current changes. Inspect failures before
   retrying. A successful command is evidence only for that command and exact code.
 - A real local commit and a push are separate actions. Use authorization already
@@ -57,14 +60,15 @@ pmtool status
   runtime builds/publication. pmtool-checks is a development-only Go/lint image.
 - The default Docker executor pins the environment image ID. Plans, settings, checkout, sync and general audit run in Go.
   ERB exchanges JSON with a minimal Ruby worker; template-owned checks use the SDK. Never mount a Docker
-  socket into the tool environment; pmtool starts PDK/VoxBox directly on the host.
+  socket into the tool environment; pmtool starts VoxBox directly on the host.
 - Provider tokens are environment variables and are passed only to their required
   steps. Never print them, put them in arguments/config/docs or mount host SSH keys.
   Private templates use separate, explicitly host-scoped credentials.
 - For CI, --executor native runs the same plan using installed job tools, without
   Docker or image lookup. It is explicit and not a filesystem sandbox. It permits
-  validation/template tests; host Git/API reads and mutations require the default executor. --stage validate|unit selects
-  a single PDK/VoxBox phase when CI jobs are split.
+  validation/template tests and module-build. Host Git/API reads and mutations,
+  and the separate forge-publish host operation, reject --executor native. --stage validate|unit selects
+  a single VoxBox phase when CI jobs are split.
 - Keep local and CI validation based on the same launcher plan. CI environment and
   launcher versions are pinned independently. Read docs before changing either.
 
@@ -73,15 +77,16 @@ pmtool status
 1. Inspect policy-noop; apply reviewed policy. Establish main/default/protection
    from intended original history before development, never from arbitrary edits.
 2. Prepare bootstrap-prepare --branch bootstrap/PURPOSE from a clean clone.
-3. If conversion is needed, preview pdk-convert-noop, review, then apply the agreed
-   pdk-convert. Correct metadata, namespace, OS support, fixtures and dependencies.
-4. Run migrate then sync. Migration removes only fixtures.symlinks and preserves
-   other fixture data/comments. Fix malformed mappings or expand a shared fixtures
+3. If conversion is needed, preview module-convert-noop before initial sync, review, then apply
+   module-convert. Correct metadata, namespace, OS support, fixtures and dependencies.
+4. Run migrate then sync. Migration removes template-url, template-ref and
+   pdk-version from metadata.json, without invoking PDK. In .fixtures.yml it removes
+   only fixtures.symlinks and preserves other fixture data/comments. Fix malformed mappings or expand a shared fixtures
    alias explicitly; never delete unrelated fixture sections. Review conflicting
    files before explicit --files retry.
    Keep module-owned spec customizations in spec_helper_local.rb.
 5. Implement domain code, Hiera, tests, metadata/changelog and English module README.
-6. Run check once: audit, PDK validation/unit, VoxBox validation/specs, release checks.
+6. Run check once: audit, VoxBox validation/specs, release checks.
    Fix failed checks; do not repeat complete green suites without a new reason.
 7. After green check use authorized bootstrap-commit, bootstrap-push, then mr.
    Combined mr waits for exact-head CI, merges and synchronizes local main.
@@ -191,10 +196,21 @@ No rc.N tags/prereleases, implicit followTags or tag movement are authorized.
 
 Use template-init --name NAME --output NEW_DIRECTORY --provider gitlab|github|both
 for a neutral schema-1 validation starter. It is local/offline and refuses existing
-output; never generate over a team template. The starter has an ERB/default pair,
+output; optional --origin URL initializes Git/main and adds that remote only; never generate over a team template. The starter has an ERB/default pair,
 self-tests, schema docs and provider CI, not team contracts, coverage enforcement
 or Forge publishing. Add reviewed policies and tests; then run template-test.
 Development builds need --launcher-version pointing to a published stable release.
+Generation never creates a hosted project or performs a commit/push. Create the
+template's remote separately; pass --origin URL to initialize Git/main and add it
+locally, or omit the option for generation without Git and connect manually later.
+--origin accepts credential-free HTTP(S), SSH and SCP-style URLs; this is remote
+configuration, not SSH template fetching. Provider remains an independent choice.
+Dry-run validates the URL and records Origin without Git/network/files. Apply
+checks Git first; post-generation Git errors preserve the files and partial repo. Review/test, commit and push
+main, wait for CI, then publish the reviewed annotated version tag. Only then use
+that repository/version in module template.use. Existing Git/origin must be
+inspected, not overwritten blindly. These explicit template Git/hosting operations
+are separate from pmtool's module release commands and require user authorization.
 
 Use pipeline-jobs for numeric job IDs, then pipeline-logs with optional --ref,
 --pipeline ID, --job ID, --failed, --tail N and --output NEW_FILE. Default tail is
@@ -214,8 +230,8 @@ optional TOOLING_TEMPLATE_* declarations are not automatic secret forwarding.
 The optional PMTOOL_TEST_TEMPLATE regression needs a supplied checkout inside
 the integration environment; a SKIP is not evidence that a team template passed.
 
-Host config.image/--image selects ERB/audit/template-test only. PDK/VoxBox validator
-images have independent CLI/env/compiled pins. Native uses installed tools. Settings
+Host config.image/--image selects ERB/audit/template-test only. VoxBox validator
+and jig images have independent CLI/env/compiled pins. Native uses installed tools. Settings
 can call host Git to infer provider; do not claim all local planning has no subprocess.
 A Docker workflow dry-run can create missing host image config, though it performs
 no Git mutation or template fetch. Catalog read_only metadata is not authorization
@@ -238,11 +254,50 @@ host Git transport rewrites can still change the transport.
 CI variable names belong to the selected team CI; PMTOOL_VERSION, release-base
 and TOOLING_IMAGE are not universal launcher environment settings. Starter YAML
 embeds its selected launcher version and SDK image pins. Root --help is the general
-documentation entry; validation/template-test have no command-local --help flag.
+documentation entry; validation/template-test/jig/forge-publish have no command-local --help flag.
 
-Compatibility aliases perform their canonical operation: pdk-convert-local does
-convert, while bootstrap-local is only sync. Template-init dry-run lists a plan
+Compatibility aliases perform their canonical operation: bootstrap-local is only
+sync. module-convert is a separate initial-onboarding operation, not an alias. Template-init dry-run lists a plan
 without destination preflight; write errors may leave a new incomplete directory.
 Template file configs merge shallowly at top-level keys; nested hashes/arrays
 replace values, independently of Puppet Hiera. --output saves the selected log
-tail, so --tail 0 is needed for a full bounded export.
+tail, so --tail 0 is needed for a full bounded export. --files is whitespace-
+separated rather than shell-parsed; omit explicit commit selection for filenames
+with spaces/Unicode. Do not mistake green pipeline-jobs for verification of the
+forge-publish job or Forge artifact during publication recovery.
+
+## Toolchain and matrix policy
+
+PDK commands, images and CI lanes are removed. Use pinned OpenVox 8 VoxBox for
+validation/specs/release checks, jig-backed module-new/module-convert/module-build
+for scaffolding/packages, and the Go forge-publish operation for explicit uploads.
+Do not replace a managed team baseline with jig convert/renew. Conversion rewrites
+three development files and removes the lockfile; review customizations first.
+The pinned image bundles jig 2.5.0; upstream 2.5.1 adds conversion backups but is
+not automatically installed. Preserve image digests and distinguish tested bundles
+from newer upstream releases. Keep provider/template/Forge tokens, including
+GH_TOKEN, out of validators. CI log redaction must cover the configured
+FORGE_PUBLISH_TOKEN as well as provider/template/job tokens.
+OS facts, executable-entity specs, pending/empty checks and 100% resource coverage
+are selected-template policy, not unconditional launcher gates. Preserve every
+gate required by the chosen template; do not bypass missing facts or weaken coverage.
+Keep actual parameter/resource assertions across the declared OS matrix.
+Go publication verifies metadata, the whole gzip stream and both compressed/unpacked
+256 MiB limits before upload. It uses credential-free HTTPS, token
+headers, no redirects/retries and HTTP 201 only. Team CI retains exact-main/protected
+tag gates. The user runs builds/tests; no commits or pushes without authorization.
+
+The VoxBox validation step must run validate, lint and rubocop together. Rake validate
+alone checks syntax and does not replace the removed PDK lint checks. Preserve this
+exact task set in Docker/native plans and split validation CI jobs.
+
+## Version 2 publication order
+
+Prepare launcher v2.0.0 on release/2.0.0; Go imports and linker paths use /v2.
+Keep pmtool as the binary name and the existing repository/release base URLs.
+PDK commands/selectors are removed rather than translated through aliases.
+Publish launcher v2 before updating the team's CI pin and releasing that template.
+Only then update module template.use and run sync/check on module work branches.
+Never move published tags or silently rewrite selectors/configs/Forge artifacts.
+Unreleased notes are finalized only by the separate preparation commit, after
+explicit authorization to commit. Current work remains without commits/pushes.

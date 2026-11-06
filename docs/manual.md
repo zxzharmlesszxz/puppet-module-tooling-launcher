@@ -49,7 +49,10 @@ pmtool template-test --module ./new-template
 
 The generator creates a new directory only; its parent must exist without symlink
 components. It refuses an existing directory/file/symlink and does not initialize
-Git or change host config. `--provider` is gitlab, github or both (default both),
+Git unless --origin URL is supplied; host image config is never changed.
+With --origin it creates an unborn main branch and adds that remote locally,
+without commits, pushes, authentication or a network request. The hosted repository
+must be created separately. `--provider` is gitlab, github or both (default both),
 independent of module provider inference. The starter includes schema-1 authoring
 docs, ERB/defaults, actual self-tests and provider validation CI. It manages only
 `.editorconfig`; add reviewed team contracts, meaningful coverage checks and
@@ -59,7 +62,13 @@ apply write error can leave an incomplete new directory; inspect it before
 cleanup or choose a fresh destination. Existing directories are never reused. Do not claim 100% coverage from starter YAML.
 Generated CI pins this stable launcher release. With a development binary, supply
 `--launcher-version vX.Y.Z` naming an already published release. Nothing is committed,
-pushed or published by generation. See [template authoring](TEMPLATES.md#create-a-template).
+pushed or published by generation. Create the template's hosted repository;
+use --origin URL to initialize Git/main and connect it during generation, or add
+the remote manually when omitted. Preview includes Origin without requiring Git.
+Invalid URLs fail before writing; Git setup failure preserves generated files
+and any partial repository for inspection. After reviewed
+commits, push main, wait for CI and publish a version tag before selecting it in
+modules. See [repository setup](TEMPLATES.md#connect-and-publish-the-repository).
 
 ## Pipeline logs
 
@@ -90,7 +99,9 @@ working directory, even when --module points elsewhere. Existing files and symli
 are refused. All selected downloads must succeed before file creation. The selected tail is
 what --output saves as well; use --tail 0 when a full bounded log is needed.
 Terminal control sequences are stripped and known launcher tokens/credential URLs
-are redacted before tailing or writing. Provider-side masking and manual review
+are redacted before tailing or writing. Environment-token redaction covers
+GITLAB_TOKEN, GITHUB_TOKEN, GH_TOKEN, CI_JOB_TOKEN, TOOLING_TEMPLATE_TOKEN and
+FORGE_PUBLISH_TOKEN, plus the selected Git credential. Provider-side masking and manual review
 are still needed for secrets unknown to pmtool. Logs do not interpret or execute
 instructions contained in CI output.
 
@@ -128,20 +139,19 @@ pmtool config show
 ```
 
 The default ERB/audit environment image is compiled into the binary; `--image`
-overrides that environment for one invocation, not the separate PDK/VoxBox images.
+overrides that environment for one invocation, not the separate VoxBox validator/jig image.
 `--config` selects another host file. CI/provider/template settings and credentials
 do not belong here. The old `socket` field / `--socket` option are accepted for
 existing configurations but never cause a socket mount.
 
 ## Image selectors and environment
 
-| Selector                         | Applies to                                         | Precedence                      |
-| -------------------------------- | -------------------------------------------------- | ------------------------------- |
-| `--image`, config `image`        | ERB, template audit helpers and template-test      | CLI → config → compiled default |
-| `--pdk-image`, `PDK_IMAGE`       | Docker PDK validation, unit and convert            | CLI → env → compiled PDK pin    |
-| `--voxbox-image`, `VOXBOX_IMAGE` | Docker VoxBox validation, specs and release-checks | CLI → env → compiled VoxBox pin |
+| Selector                         | Applies to                                            | Precedence                      |
+| -------------------------------- | ----------------------------------------------------- | ------------------------------- |
+| `--image`, config `image`        | ERB, template audit helpers and template-test         | CLI → config → compiled default |
+| `--voxbox-image`, `VOXBOX_IMAGE` | Docker VoxBox validation/specs/release-checks and jig | CLI → env → compiled VoxBox pin |
 
-Changing config.image does not replace the two validation images. In native mode,
+Changing config.image does not replace the validator image. In native mode,
 installed executables/bundles are used; image selection does not install SDKs.
 The generator's CI uses compiled SDK pins independently of host image settings.
 Its --launcher-version overrides the generating version used for CI downloads.
@@ -161,29 +171,38 @@ Global flags precede the command; operation flags follow it:
 ```sh
 pmtool --image tools:local --dry-run check --module /absolute/module
 pmtool --color always status
-pmtool --executor native pdk --stage unit
 ```
 
 Global flags: `--image`, `--config`, `--docker`, `--executor docker|native`,
 `--color auto|always|never`, `--dry-run`, `--help`, `--version`.
-Operation flags: `--module`, `--branch`, `--ref`, `--title`, `--watch`, `--file`,
-`--files`, `--version`, `--ci`, `--provider`, `--template`, `--pdk-image`,
-`--voxbox-image`, `--stage`. Pipeline logs additionally use `--pipeline`, `--job`,
+Operation flags: `--name` (module-new), `--module`, `--branch`, `--ref`, `--title`, `--watch`, `--file`,
+`--files`, `--version`, `--ci`, `--provider`, `--template`, `--voxbox-image`, `--stage`. Pipeline logs additionally use `--pipeline`, `--job`,
 `--failed`, `--tail`, `--output`; template-init uses `--name`, `--output`,
-`--launcher-version` and its own provider selection. Documentation uses `--section`.
+`--launcher-version`, `--origin` and its own provider selection. Documentation uses `--section`.
 `--host-module` is internal and cannot be supplied by callers. `--ci-project`
 remains GitLab-only compatibility: it selects /ci/puppet-module.yml at the fixed
 v0.6.0 ref, not the current template revision. Prefer a complete versioned --ci.
 
 Use root `pmtool --help` or `pmtool docs` for documentation. Command-local help is
 not uniform: host Git/API commands and template-init support --help; template-test
-and validation parsers do not implement that flag. `template-test` takes no
+and validation/jig/forge-publish parsers do not implement that flag. `template-test` takes no
 arguments or exactly --module PATH with a separate path argument.
 
-Use `pmtool manifest` to inspect this launcher's exact command/option catalog.
+--files is one whitespace-separated string of module-relative paths, not a
+shell-parsed list; quoting the whole argument does not support filenames containing
+spaces. Explicit commit selections accept only ASCII letters/digits, underscore,
+dot, slash and hyphen, with no leading hyphen or traversal. Automatic commit
+selection preserves spaces and Unicode; omit --files for such names. A restricted
+commit selection must still cover all changed files; it cannot silently omit
+unrelated changes. In sync, --files approves reviewed baseline replacements/removals.
+
+Use `pmtool manifest` to inspect the workflow catalog. Root flags and local
+interfaces such as config, ai and completion have their own parsing; the manifest
+is not a complete CLI grammar.
 The catalog is metadata, not an authorization boundary. Its read_only field does
 not prove absence of provider mutations: for example, mr-create still creates a
-remote request. Host command guards and user authorization remain authoritative.
+remote request. The token field describes module-provider authentication, not
+Forge authentication; forge-publish still requires its own environment token. Host command guards and user authorization remain authoritative.
 `--dry-run` prints planned steps without executing them. In Docker mode it may
 print the Go plan without resolving/pulling an image or fetching templates; it performs no commit,
 push, merge, tag or publication.
@@ -238,17 +257,17 @@ require `/bin/false` or run caller/repository askpass programs.
 The source repository has a separate GitHub workflow:
 
 ```sh
-make release-prepare VERSION=v1.2.3
+make release-prepare VERSION=v2.0.0
 make check
-make release-submit VERSION=v1.2.3 MESSAGE='Describe the implementation'
-make mr VERSION=v1.2.3
+make release-submit VERSION=v2.0.0 MESSAGE='Describe the implementation'
+make mr VERSION=v2.0.0
 ```
 
 Prepare creates the versioned branch from synchronized clean main. Submit commits
 implementation, finalizes Unreleased in a separate preparation commit and pushes.
 MR waits for exact-head CI, merges, syncs main and verifies its CI artifacts.
 Review the downloaded binary with your team template/module before the separate
-`make push-release VERSION=v1.2.3` publication step.
+`make push-release VERSION=v2.0.0` publication step.
 
 `make pipeline-jobs` shows current-ref CI; REF selects another local branch/tag,
 WATCH=5 waits, and RUN_ID must match that ref's SHA. `make pipeline-logs` shows the
@@ -261,25 +280,20 @@ removes branches or moves tags. See the [development guide](DEVELOPMENT.md#versi
 ## Compatibility commands and optional previews
 
 Aliases execute exactly the canonical command; they add no preparation or
-combined workflow steps. In particular, bootstrap-local only synchronizes the
-baseline, while pdk-convert-local performs the normal PDK conversion and its
-noop alias previews that conversion:
+combined workflow steps. bootstrap-local only synchronizes the baseline:
 
-| Compatibility name       | Canonical command  |
-| ------------------------ | ------------------ |
-| `bootstrap-local`        | `sync`             |
-| `bootstrap-local-noop`   | `sync-noop`        |
-| `audit-local`            | `audit`            |
-| `pdk-local`              | `pdk`              |
-| `pdk-convert-local`      | `pdk-convert`      |
-| `pdk-convert-local-noop` | `pdk-convert-noop` |
+| Compatibility name     | Canonical command |
+| ---------------------- | ----------------- |
+| `bootstrap-local`      | `sync`            |
+| `bootstrap-local-noop` | `sync-noop`       |
+| `audit-local`          | `audit`           |
 
 bootstrap-commit-noop and release-commit-noop preview automatic file selection
 without staging or committing. bootstrap-push-noop and release-push-noop preview
 remote push; release-tag-noop waits for/checks exact-main CI without creating or
 pushing a tag. policy-noop and cleanup-noop preview their guarded operations.
 Previews are optional, except a requested preview must be reviewed before apply.
-PDK conversion preview may write a report; --dry-run may initialize Docker config.
+module-convert-noop uses jig convert --dry-run; launcher --dry-run may initialize Docker config.
 See [command syntax](#command-syntax) for planning versus operation-specific noops.
 
 ## Permissions and tools
@@ -290,7 +304,7 @@ image once to an image ID for ERB and template-owned checks. ERB exchanges JSON
 through stdin/stdout; no launcher helper archive is extracted. In Docker mode,
 template-owned audit scripts receive read-only physical-path mounts and the
 invoking user's UID/GID. Native checks use the job user's ordinary filesystem
-permissions. Docker PDK/VoxBox validation uses writable module mounts because
+permissions. Docker VoxBox validation uses writable module mounts because
 tools can create reports, caches or build artifacts; fixture dependencies use
 temporary mounts for unit/spec/release-check steps. No worker receives
 provider/template tokens or a Docker socket. Git safe.directory is clone-scoped.
@@ -306,33 +320,34 @@ requires the exact approved host and a template-consuming operation. Credentials
 are environment values, never arguments, documentation or module configuration.
 SSH template authentication is not implemented.
 
-PDK/VoxBox images are launched directly by the host pmtool. No tool container
+VoxBox images are launched directly by the host pmtool. No tool container
 receives a Docker socket. Validator steps receive no provider/template token or
-commit author. Default tool versions remain pinned; explicit `--pdk-image` and
-`--voxbox-image` overrides are available.
+commit author. Default tool versions remain pinned; explicit `--voxbox-image` overrides are available.
 
 ## Native executor for CI
 
 `--executor native` uses tools already installed in the current CI job environment.
 It runs the same launcher-owned plan, stops at the same failure and preserves exit
-codes. It requires neither Docker CLI nor Docker socket. Validation/template-test execution does not create host image configuration
-or resolve an image. Explicit config commands keep their own initialization behavior.
+codes. It requires neither Docker CLI nor Docker socket. module-build supports
+native execution with installed jig; module-new and conversion require Docker.
+Validation/template-test/module-build execution does not create host image
+configuration or resolve an image. Explicit config commands keep their own initialization behavior.
 
 ```sh
-pmtool --executor native pdk --stage validate
-pmtool --executor native pdk --stage unit
 pmtool --executor native voxbox --stage validate
 pmtool --executor native voxbox --stage unit
 pmtool --executor native audit
 pmtool --executor native release-checks
 pmtool --executor native template-test --module /template
+pmtool --executor native module-build
 ```
 
-`--stage validate|unit` selects one PDK/VoxBox phase; omission runs both. The tool
+`--stage validate|unit` selects one VoxBox phase; omission runs both. Validation runs all three Rake tasks: validate, lint and rubocop. The tool
 image must provide the requested executables and bundles. Full `check` requires
-both toolchains. Native mode is explicit, uses the job user's filesystem and
+the VoxBox toolchain. Native mode is explicit, uses the job user's filesystem and
 environment, and offers no container filesystem/credential isolation of its own.
 Native mode refuses host Git/API commands, including status and pipeline reads.
+forge-publish is a separate host Go operation and also rejects --executor native.
 Local help, settings and template-init are handled before executor dispatch. Use regular pmtool commands
 without --executor native for interactive releases; their Go backend uses host Git
 and REST directly, without starting Docker.
@@ -340,14 +355,15 @@ and REST directly, without starting Docker.
 ## Bootstrap
 
 ```text
-policy-noop → review → policy → bootstrap-prepare → optional PDK conversion
+policy-noop → review → policy → bootstrap-prepare → optional module conversion
 → migrate → sync → edit → check → bootstrap-commit → bootstrap-push → mr
 → check → release-tag → verify Forge/canary → reviewed cleanup
 ```
 
 Prepare with an explicit `--branch bootstrap/<purpose>`. Main must be created from
-the intended original history before development. Conversion preview can write a
-report; applying conversion is separate. Fix generated metadata, dependencies,
+the intended original history before development. Conversion preview uses jig
+--dry-run without applying file changes; conversion is a separate operation.
+A Docker invocation may still initialize missing host image configuration. Fix generated metadata, dependencies,
 fixtures and namespace before continuing. Existing baseline conflicts require
 reviewed `--files`; custom spec settings belong in `spec_helper_local.rb`.
 
@@ -359,7 +375,7 @@ release-prepare → sync → edit → check → release-submit → mr → check 
 
 `release-prepare --version X.Y.Z` synchronizes clean main and creates the release
 branch. Update metadata, matching changelog, implementation, tests and README.
-`check` runs audit → PDK validation/unit → VoxBox validation/specs → release checks.
+`check` runs audit → VoxBox validation/specs → release checks.
 
 `release-submit` commits then pushes the branch. If push fails, preserve the commit
 and retry `release-push`. `mr` creates/reuses the MR, waits for its exact-head push
@@ -379,7 +395,10 @@ remain the final publication evidence.
 It accepts --ref (or --branch), defaults to the current branch and --watch 0,
 and uses the server branch SHA when available. --watch accepts 0..86400 seconds.
 A running pipeline with watch=0 can return success; failed finished CI returns an
-error. pipeline-logs is a separate read operation and can succeed for failed CI.
+error. Even a successful watcher checks pipeline status, not the release-tag
+publication guards or the presence of forge-publish. Verify the publishing job and
+Forge artifact separately during recovery. pipeline-logs is a separate read
+operation and can succeed for failed CI.
 
 ## Cleanup
 
@@ -398,16 +417,18 @@ Forge artifacts and unrelated branches. No bulk prune or automatic cleanup occur
 
 ```sh
 make format
-make build VERSION=v1.2.3
+make build VERSION=v2.0.0
 ```
 
 Build includes Go format/vet/lint/coverage/race, security, real ERB and Ruby-asset
 lint, four platform binaries, LICENSE/checksums and native smoke. There is no
-VERSION file; Git tags and build parameters supply the version.
+VERSION file; Git tags and build parameters supply the version. Team template tests
+must also lint rendered Ruby under their supported module styles; source-asset
+lint alone does not validate generated profiles.
 
 Use the [source Make workflow](#launcher-source-make-targets) for release branches,
 separate implementation/preparation commits, PR merge and CI artifact verification.
-Publication remains `make push-release VERSION=v1.2.3` after reviewing the binary.
+Publication remains `make push-release VERSION=v2.0.0` after reviewing the binary.
 Direct release-tag creates only a local annotated tag; push-release-tag publishes
 that same tag and waits for CI. Their artifact and exact-main guards remain intact.
 Optional release-tag-noop runs those guards without creating a tag. Existing
@@ -415,3 +436,113 @@ push-main supports a prepared clean main; ci-artifacts retries the artifact phas
 No rc.N lane is added. Preserve tags on failure, inspect/retry CI and resume the
 identical push-release-tag. Build/check/clean never publish; after clean, verify
 CI artifacts again before tagging.
+
+## Module scaffolding, conversion and packages
+
+For a new module, select its existing parent directory:
+
+```sh
+pmtool module-new --module /absolute/modules --name sample
+```
+
+For an existing legacy module, conversion is an alternative before its first sync:
+
+```sh
+pmtool module-convert-noop
+pmtool module-convert
+```
+
+Build an existing module from its own directory:
+
+```sh
+pmtool module-build
+```
+
+module-new runs jig new module --skip-interview in a new child of --module (the current
+working directory by default); existing files, directories and symlinks are refused.
+NAME must start with a lowercase ASCII letter, followed only by lowercase ASCII
+letters, digits or underscores. Hyphens are not accepted.
+Fill in author, license, source, supported OS/releases and dependencies before checking.
+module-convert is for initial onboarding only, before .sync.lock.json exists.
+Both conversion and its preview refuse that lock.
+The module must have a manifests directory. Conversion replaces
+Gemfile, Rakefile and spec/spec_helper.rb and removes Gemfile.lock. Review customizations
+first; the pinned VoxBox currently bundles jig 2.5.0 without conversion backups.
+The upstream jig 2.5.1 adds .orig backups, but does not update an existing image digest.
+For an already synchronized module use sync, not conversion or jig renew.
+Both operations use jig's embedded scaffold; the versioned team baseline still comes
+from template.use in .sync.yml. The two template formats are independent.
+module-build runs jig build and writes pkg/OWNER-MODULE-VERSION.tar.gz.
+Its default packaging allowlist excludes development files and .sync.yml; it does not
+read .pdkignore. Review any custom packaging through jig.toml before publishing.
+Native CI supports module-build with installed jig; module-new/conversion use Docker.
+
+## Forge upload
+
+forge-publish uploads the already-built, metadata-matching archive through Go without
+Docker, Git/API provider tokens, or image/config initialization. It requires FORGE_URL
+(a credential-free HTTPS base URL without query/fragment) and FORGE_PUBLISH_TOKEN
+in the environment. Supply the raw token without a Bearer prefix; pmtool adds the
+Authorization header. The endpoint is BASE_URL/v3/releases. Tokens are never arguments.
+
+The archive must be pkg/OWNER-MODULE-X.Y.Z.tar.gz under the selected module, with
+a stable metadata version and no symlinks in the archive path. It must be a regular
+nonempty file of at most 256 MiB, with at most 256 MiB after decompression. The
+whole gzip stream, including its checksum/footer, is verified before upload.
+It must contain exactly one matching regular
+OWNER-MODULE-X.Y.Z/metadata.json of at most 1 MiB with the same name/version.
+The V3 payload is JSON/base64 file content.
+Only HTTP 201 succeeds; redirects, duplicate-version conflicts and other failures stop
+publication without automatic retries. The request timeout is two minutes.
+--dry-run requires FORGE_URL and a valid archive, but no publish token; it verifies
+the artifact and prints the endpoint without uploading. Both modes reject
+--executor native; omit it because the uploader already runs on the host.
+Preserve the release tag on failure and inspect Forge state
+before retrying. This explicit publishing operation does not replace protected-tag,
+exact-main CI and release-check gates in the team's CI pipeline.
+
+## OS matrix completeness
+
+OS-matrix completeness is template policy, not a universal launcher gate. A team
+helper can require nonempty OS/releases in metadata.json and FacterDB facts for
+every declared pair before loading specs, preventing a missing Debian 13 target
+from silently disappearing from on_supported_os. Use that alongside the selected
+template's executable-spec, pending/skipped-suite and resource-coverage checks.
+Fact availability does not prove tests exercised every configuration; keep real resource
+and parameter assertions under the full on_supported_os matrix.
+Other templates choose their own audit/coverage policy. The default remains pinned
+OpenVox 8; OpenVox 9 requires a separately verified environment lane.
+
+## Upgrading to 2.0
+
+Version 2.0.0 removes the PDK executable/image dependency and its CLI interface.
+Existing PDK commands and --pdk-image are rejected; there are no compatibility
+aliases that silently run a different toolchain.
+
+| Version 1 interface                       | Version 2 replacement                                      |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| pdk / pdk-local                           | voxbox, or check for the full sequence                     |
+| pdk-convert / pdk-convert-local           | module-convert before initial managed sync only            |
+| pdk-convert-noop / pdk-convert-local-noop | module-convert-noop before initial managed sync only       |
+| --pdk-image / PDK_IMAGE                   | --voxbox-image / VOXBOX_IMAGE for validation and jig tools |
+| PDK validation/unit jobs in shared CI     | VoxBox validation (validate, lint, rubocop) and unit jobs  |
+| PDK-based Forge build/upload              | module-build, then guarded CI forge-publish                |
+
+check now runs audit → VoxBox validation → VoxBox specs → release checks.
+The validation phase includes syntax, Puppet lint and RuboCop; it is not syntax-only.
+Review conversion before applying: jig overwrites Gemfile/Rakefile/spec_helper and
+removes Gemfile.lock. For an existing managed baseline use sync instead.
+
+Publish pmtool v2 before adopting CI that downloads it. Team maintainers then
+release an updated immutable template/CI version that uses v2 and removes PDK jobs.
+Modules select that template in .sync.yml, synchronize on a work branch and pass
+check plus branch CI before their ordinary release. Do not point existing modules
+at an unpublished template or move old launcher/template/module tags.
+The launcher does not rewrite module selectors, Forge artifacts or host config
+when upgrading. Template contracts and coverage policy remain team-owned.
+
+The Go module is github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2.
+The executable remains pmtool, and release downloads use the existing repository
+URL without a /v2 path suffix. Build tools/source installs use Go 1.27.3 and the
+/v2 Go package path. The runtime remains the pinned OpenVox 8 VoxBox image; this
+major version does not adopt OpenVox 9 or automatically update bundled jig.

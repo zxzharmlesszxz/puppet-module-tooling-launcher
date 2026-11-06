@@ -35,13 +35,19 @@ Native CI uses installed job tools directly and is not a filesystem sandbox.
 
 The remaining Ruby assets are the ERB worker and the standalone contract-profile
 helper emitted into modules for their RSpec/AST checks. The latter preserves the
-existing generated interface and bytes. A real-Ruby regression compares its
+selection interface; its generated layout is versioned with pmtool. A real-Ruby regression compares its
 selection results with Go; it is not an alternate launcher backend. Puppet/RSpec
 parsing and coverage remain in template-owned checks using the actual runtime APIs.
 
-PDK/VoxBox are started directly through the host Docker CLI. Go preserves child
+VoxBox are started directly through the host Docker CLI. Go preserves child
 exit codes, runs checks in order and stops at the first failure. There is no Ruby
 planner, settings RPC, archived helper bundle or old engine retained for tests.
+
+Template-init --origin is explicit local Git setup, not module release or API
+publication. It validates a credential-free remote, checks Git before writing,
+initializes an unborn main and adds origin. Caller Git directory/config overrides
+and credentials are isolated; Git templates are disabled. Preview/default generation
+invoke no Git. Post-generation Git failures preserve the new tree for inspection.
 
 ## Documentation checks
 
@@ -59,20 +65,28 @@ Formatting targets recurse through cmd/internal/docs, including internal/scaffol
 make format
 make check
 make full-check
-make build VERSION=v1.1.0
+make build VERSION=v2.0.0
 ```
 
 Go checks include format, vet, golangci-lint, coverage threshold, race tests,
 govulncheck, gosec and actionlint. The workflow-check target compiles the same Go template test suite and runs it
 inside the selected SDK with real ERB, then applies strict RuboCop to the remaining
-Ruby assets. Unit tests cover parser-independent rules without requiring Ruby. No scanner rules are weakened.
+Ruby assets. Helper assembly regressions also enforce one top-level profile class
+with a nested group-selection helper and check the generated class boundaries
+and preserve module template/CI settings. Template suites must lint the actual
+rendered Ruby under supported module styles; linting ERB or engine assets alone
+does not qualify the output. Unit tests cover parser-independent rules without
+requiring Ruby. No scanner rules are weakened.
 Security scans include Trivy filesystem/license/secret/misconfiguration checks.
+The scanner is pinned to Trivy 0.76.2 and its multi-platform image digest in
+Makefile through TRIVY_IMAGE. Scanner-only updates can be verified with
+`make trivy-filesystem`; they do not require rebuilding pmtool binaries.
 WORKFLOW_IMAGE defaults to pinned upstream VoxBox for OpenVox 8. Builds do not need
 a sibling environment checkout or a custom runtime image.
 
 Cross-builds copy the preloaded Go modules into a private writable temporary
 cache. Builds stay offline under the invoking UID/GID and preserve the image-owned
-cache. Use `make build VERSION=v1.1.0` to verify a release; plain `make build`
+cache. Use `make build VERSION=v2.0.0` to verify a release; plain `make build`
 intentionally produces `dev` artifacts.
 
 Release regression tests use temporary local bare Git remotes and a fake gh.
@@ -99,22 +113,22 @@ release-prepare → edit → check → release-submit → mr → review CI binar
 ```
 
 ```sh
-make release-prepare VERSION=v1.2.3
+make release-prepare VERSION=v2.0.0
 make check
-make release-submit VERSION=v1.2.3 MESSAGE='Describe the implementation'
-make mr VERSION=v1.2.3
+make release-submit VERSION=v2.0.0 MESSAGE='Describe the implementation'
+make mr VERSION=v2.0.0
 ```
 
 Prepare requires an ordinary committed clone and clean worktree, synchronizes main
 without reset/stash, verifies that the new canonical version exceeds main's latest
 changelog release, rejects existing local/remote branch or tag names, then creates
-`release/1.2.3`. Do not repeat it on an edited release branch. Optional
+`release/2.0.0`. Do not repeat it on an edited release branch. Optional
 `release-prepare-noop` previews from already synchronized clean main.
 
 Put implementation notes under `## Unreleased`. Submit automatically stages the
 reviewed source files, commits with MESSAGE, then creates a separate
-`chore(release): prepare v1.2.3` commit whose only change is finalizing that heading
-to `## Release 1.2.3`. It pushes the branch with tag following disabled. VERSION
+`chore(release): prepare v2.0.0` commit whose only change is finalizing that heading
+to `## Release 2.0.0`. It pushes the branch with tag following disabled. VERSION
 must match the branch. Existing tags are never reused. Same-version corrective
 commits on an unmerged branch are supported; already finalized notes do not create
 empty preparation commits. `release-submit-noop` shows selection/diff without
@@ -124,9 +138,9 @@ release-tag-noop preview their respective operations with the normal guards.
 Individual operations remain available:
 
 ```sh
-make release-commit VERSION=v1.2.3 MESSAGE='Describe the implementation'
-make release-finalize VERSION=v1.2.3
-make release-push VERSION=v1.2.3
+make release-commit VERSION=v2.0.0 MESSAGE='Describe the implementation'
+make release-finalize VERSION=v2.0.0
+make release-push VERSION=v2.0.0
 ```
 
 Failures preserve commits and staging. After push failure, retry release-push or
@@ -151,7 +165,7 @@ Read source CI without manually composing API requests:
 ```sh
 make pipeline-jobs
 make pipeline-jobs REF=main WATCH=5
-make pipeline-logs REF=release/1.2.3 TAIL=100
+make pipeline-logs REF=release/2.0.0 TAIL=100
 make pipeline-logs REF=main RUN_ID=123 JOB=456 FAILED_ONLY=0
 ```
 
@@ -174,7 +188,7 @@ Existing different artifacts are preserved and rejected.
 Only after reviewing those artifacts:
 
 ```sh
-make push-release VERSION=v1.2.3
+make push-release VERSION=v2.0.0
 ```
 
 Publication still requires verified current-main artifacts, local preflight,
@@ -328,17 +342,19 @@ publication were performed.
 
 ## Version 1.1.0 generator and log regressions
 
-The combined release includes source workflow targets, configured-origin and
-portable authentication fixes, neutral template generation and cross-provider logs.
-Keep the implementation commit separate from `chore(release): prepare v1.1.0`;
-changelog remains Unreleased until release-finalize. Do not reuse the already
-published v1.0.0 tag. Existing work on release/1.0.1 must move to release/1.1.0
-before the source submission targets are used.
+Version 1.1.0 introduced source workflow targets, configured-origin and portable
+authentication fixes, neutral template generation and cross-provider logs. Its
+published tag is immutable. Source submissions keep implementation and the
+changelog-only preparation commit separate, with Unreleased notes finalized by
+release-finalize for the selected version.
 
 internal/scaffold owns neutral starter assets, generated provider validation CI
 and exclusive new-directory writes. No deployed team template is embedded.
-Tests check provider selection/schema, conflicts/symlinks/traversal, no Git/Docker
-or host config side effects, real ERB sync/audit and its own Ruby fixture suite.
+Tests check provider selection/schema, conflicts/symlinks/traversal, Git-free
+default generation, Docker/config isolation, real ERB sync/audit and the Ruby fixture
+suite. Origin regressions use actual temporary Git repositories and test unborn
+main, exact remote storage, caller environment/parent isolation and Git failures;
+no real provider, commit or push is involved.
 The generated validation CI intentionally omits publication; do not fake green
 forge-publish or silently adopt team contracts.
 
@@ -406,3 +422,42 @@ Source release targets operate on this launcher, not a Puppet module.
   pushes/resumes that exact tag and waits for publication. `push-release` combines
   reviewed artifact checks, preflight, local tagging and tag push. It never pushes
   main. No build/check target publishes anything.
+
+## Deferred review-approval waiting
+
+Required human MR/PR approvals are planned for a later launcher release, not v2.0.0.
+Current mr waits for exact-head CI and then asks the provider to merge; an unmet
+approval rule can therefore refuse the merge. Do not claim that approval waiting
+is implemented or bypass provider review rules. The follow-up must cover GitLab
+and GitHub, distinguish human reviews from CI approvals/manual jobs, report the
+request URL while waiting, and recheck source SHA and CI before merging.
+
+## Single module toolchain
+
+Module check has four stages: audit, VoxBox validation, VoxBox specs and release
+checks. The retired PDK runtime/image/commands/aliases are not supported.
+Native module-build runs jig directly; Docker jig plans override the VoxBox
+entrypoint without forwarding provider/template/Forge secrets or a Docker socket.
+module-convert refuses an existing .sync.lock.json; managed baseline updates use sync.
+Go forge-publish reads a regular metadata-matching local archive, uses Forge V3
+JSON/base64 over HTTPS with token headers, refuses redirects and retries, and
+requires HTTP 201. It bypasses image/config initialization; publication remains
+an explicit command behind the team's protected-tag/exact-main CI gates.
+Regressions cover removed commands/selectors, four-step fail-fast order, native
+argument parity, jig no-overwrite/preview plans and V3 bytes/auth/status handling.
+Team templates own fact-matrix completeness and spec/coverage gates; the neutral
+starter does not supply those checks.
+
+The launcher module, development/check image and source builds require Go 1.27.3.
+The go.mod directive matches GO_IMAGE; this is independent of the Ruby/OpenVox SDK.
+
+## Version 2 source and artifacts
+
+The current preparation branch is release/2.0.0. Keep Unreleased until the separate
+release-finalize preparation commit. The Go module and all internal imports and
+-X linker symbols use github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2.
+The GitHub repository/release download URLs do not gain /v2. make build VERSION=v2.0.0
+produces all four platforms, LICENSE and SHA256SUMS under dist/v2.0.0 and verifies
+the real linked version/default-image behavior through native smoke.
+Build regressions cover both 2.0.0 and v2.0.0, alongside earlier stable/dev syntax.
+Update team template CI only after v2 is published; keep all old tags immutable.

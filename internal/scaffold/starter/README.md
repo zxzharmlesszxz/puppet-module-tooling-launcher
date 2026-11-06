@@ -11,8 +11,8 @@ pmtool template-test --module .
 This renders a temporary module and checks baseline integrity, then runs
 `test/run.rb` with the documented JSON fixture. It does not run `audit.checks`
 scripts automatically; exercise them explicitly in `test/run.rb`. It does not
-modify a real module. Generation itself uses no Docker, Git or network. By
-default, template-test uses the configured tools image for Ruby/ERB;
+modify a real module. Generation uses no Docker or network; Git is needed only
+with --origin. By default, template-test uses the configured tools image for Ruby/ERB;
 `--executor native` uses the job's installed tools instead.
 
 ## Layout and customization
@@ -33,8 +33,8 @@ Extend the test suite whenever you add or change a contract or audit rule.
 ## CI and publication
 
 Generated CI pins the generating stable pmtool release, verifies SHA256SUMS, and
-uses PDK and stock OpenVox 8 VoxBox. It does not use curl or nested Docker.
-Module branch pushes run audit and both toolchains; duplicate MR/PR validation
+uses stock OpenVox 8 VoxBox. It does not use curl or nested Docker.
+Module branch pushes run audit, VoxBox validation (validate, lint, rubocop) and specs; duplicate MR/PR validation
 pipelines are not added. GitHub callers use workflow_call; the template's own push
 workflow runs template-test. GitLab has separate root and reusable YAML files.
 Choose runner tags/permissions for your installation. Private template checkout
@@ -53,6 +53,33 @@ main jobs for that exact SHA, performs release checks, and publishes through an
 actual successful `forge-publish` job. Keep credentials in protected CI secrets.
 Until then use validation only; pmtool refuses unverified publication.
 
+## Connect and publish the repository
+
+Create an empty GitLab/GitHub repository for this template, matching the selected
+CI hosting. Supplying --origin URL to template-init initializes Git/main and
+adds origin locally, without commits, tags, network access or pushes. The option
+does not create the hosted project or change --provider. It accepts credential-free
+HTTP(S), SSH and SCP-style repository addresses. SSH origin setup does not enable
+SSH template fetching. Preview records Origin without requiring Git; a Git setup
+failure preserves generated files and any partial .git for inspection.
+
+If generation omitted --origin, no local Git or remote was created. From this
+package directory, replace the following example with its actual repository URL:
+
+```sh
+git init --initial-branch=main
+git remote add origin https://git.example.com/team/PMTOOL_TEMPLATE_NAME.git
+git remote -v
+```
+
+Use the template's own URL, not a module or launcher URL. For GitHub, use its
+GitHub repository URL. If Git/origin already exists, inspect it instead of
+repeating initialization or replacing a remote blindly. Review and test the files,
+commit them, push main with its upstream and wait for CI on that commit. Then
+publish an annotated version tag and wait for any configured tag CI. These are
+explicit Git/hosting operations; pmtool's module release commands do not publish
+template repositories. Private template and CI access for modules is separate.
+
 Publish the reviewed template with an immutable Git tag before selecting it:
 
 ```yaml
@@ -67,4 +94,4 @@ GitLab project includes require the same GitLab server; see `pmtool docs templat
 for the supported public GitHub-to-GitLab remote include exception.
 
 Keep Git tags and changelog as the version source; no VERSION file is generated.
-The generator never initializes Git, commits or pushes anything.
+The generator initializes Git only with explicit --origin; it never commits or pushes.

@@ -1,6 +1,8 @@
 # Підключення та реліз Puppet-модуля
 
-Launcher CI/provider: CLI → .sync.yml → provider з origin.
+Template: --template → .sync.yml template.use, без неявного шаблону.
+CI: --ci → .sync.yml ci.use → CI обраного шаблону на тому самому SHA.
+Provider: --provider → .sync.yml ci.provider → визначення з origin.
 Модульний .sync.yml містить template.use, optional ci.use/ci.provider; config.json — image/docker; socket є сумісним застарілим полем і не монтується.
 Токени лише через env. Деталі: docs ci.
 Налаштування читає launcher. За замовчуванням CI береться з тієї самої версії
@@ -30,7 +32,7 @@ Launcher catalog permission `template_token` дозволяє передачу �
 `audit`, `check` та їхніх aliases. Git checkout отримує окремий template token лише для точного host/repository.
 Якщо token заданий для іншого host, операція завершується помилкою; без template
 token доступ є анонімним. Settings, документація,
-PDK/VoxBox-only та API/release-команди не отримують ці credentials. Для нової
+VoxBox-only та API/release-команди не отримують ці credentials. Для нової
 permission оновлюйте launcher; upstream image не містить command catalog.
 
 Git helper перевіряє HTTPS, точний host і repository path, не зберігає токен та
@@ -60,10 +62,35 @@ pmtool template-init --name team_template --output ../team-template --provider b
 pmtool template-test --module ../team-template
 ```
 
-Генерація локальна: без Docker, Git, мережі та host config. Каталог має бути новим,
+Генерація локальна: без Docker, мережі та host config; Git потрібний лише з --origin. Каталог має бути новим,
 батьківський — наявним без symlink. Провайдер — gitlab, github або both (типово both).
 Для template-test потрібний tools image або явний native SDK. Dev-бінарнику генератора
 потрібний `--launcher-version vX.Y.Z`, що вказує на опублікований стабільний launcher.
+
+Створіть окремий порожній проєкт шаблону на GitLab/GitHub і передайте його URL
+через --origin під час генерації:
+
+```sh
+pmtool template-init --name team_template --output ../team-template --provider gitlab --origin https://git.example.com/team/puppet-template.git
+```
+
+Це альтернатива першому виклику генератора, а не повторний запуск у той самий
+каталог. Команда ініціалізує Git із main без комміту й додає origin, але не створює
+hosted project і не перевіряє його доступність. Без --origin Git не потрібний;
+у такому разі підключіть remote вручну після генерації:
+
+```sh
+cd ../team-template
+git init --initial-branch=main
+git remote add origin https://git.example.com/team/puppet-template.git
+git remote -v
+```
+
+Це origin самого шаблону, не модуля чи launcher. Для вже ініціалізованого Git
+перевірте наявний origin замість повторного init/add. Після review та template-test
+зробіть commit і push main з upstream, дочекайтеся зеленого CI, потім опублікуйте
+annotated version tag. Лише після цього вибирайте його в template.use модуля.
+Це окремі Git/hosting-операції: module release-команди pmtool не публікують шаблон.
 
 Стартовий пакет містить schema 1, defaults/ERB, опис формату, тести та CI валідації.
 Він керує лише `.editorconfig`; контракти, specs для сутностей, вимірювання 100%
@@ -80,12 +107,11 @@ resource coverage й Forge publication додає команда. Не вваж�
 pmtool config init
 pmtool policy-noop
 pmtool audit
-pmtool pdk
 pmtool release-prepare --version X.Y.Z
 ```
 
 Виконуйте лише відповідний поточному кроку виклик. Launcher виконує Git/API у Go,
-а інструментальні перевірки — в офіційних PDK/VoxBox без Docker socket і provider tokens.
+а інструментальні перевірки — в офіційних VoxBox без Docker socket і provider tokens.
 Параметри операції передавайте після команди launcher-а.
 За потреби іншого clone додайте `--module /absolute/clone`. Не копіюйте Docker flags
 в аргументи launcher-а. Його конфіг/інсталяція: `pmtool docs launcher`.
@@ -156,29 +182,36 @@ pmtool bootstrap-prepare --branch bootstrap/shared-contracts
 Prepare не повторюють на вже створеній гілці. Dirty clone або стороння ancestry
 потребують розбору; tooling не виконує reset/stash.
 
-## 4. PDK convert для legacy-модуля
+## 4. Генерація або початкова конвертація через jig
 
-Якщо PDK-каркас уже коректний, пропустіть convert, але перевірте metadata/fixtures.
-Інакше спочатку preview, перегляд `convert_report.txt`, потім apply:
-
-```sh
-pmtool pdk-convert-noop
-```
+Генерація нового модуля — окремий початок роботи, а не крок усередині вже
+підготовленого clone з кроку 3. Запускайте її з батьківської папки майбутнього модуля:
 
 ```sh
-pmtool pdk-convert
+pmtool module-new --name sample
 ```
 
-Preview може записати report. Apply використовує `--force` без повторного запиту.
-До apply збережіть потрібні customizations. Convert не створює commit і не запускає tests.
-Виправте PDK defaults `username-workspace`, версію, author, summary, license, source,
-dependencies та підтримувані OS. Не заявляйте підтримку неперевірених версій ОС.
-Fixtures мають відповідати dependencies; specs повинні використовувати справжній клас
-модуля, а не згенерований namespace `workspace`.
+Після генерації перейдіть у новий модуль і підготуйте його Git origin/main перед
+bootstrap. Для вже наявного legacy-clone генерацію пропустіть; без керованого
+baseline за потреби перегляньте й застосуйте конвертацію:
+
+```sh
+pmtool module-convert-noop
+pmtool module-convert
+```
+
+Конвертація переписує Gemfile, Rakefile і spec/spec_helper.rb та прибирає Gemfile.lock.
+Перегляньте custom налаштування до застосування; у закріпленому образі jig 2.5.0
+не створює резервних копій. jig 2.5.1 додав .orig backups, але це не оновлює старий image pin.
+Не конвертуйте baseline, яким уже керує pmtool: для нього використовуйте sync.
+Задайте metadata, namespace, author, license, supported OS, dependencies та fixtures явно.
+Збережіть .sync.yml і .rubocop.yml: вони використовуються нашим workflow.
+Потім виконайте migrate і sync. Міграція очищає старі template metadata та fixture symlinks;
+вона не запускає старі інструменти.
 
 ## 5. Detachment та baseline
 
-Після перевірки metadata/fixtures від’єднайте PDK template:
+Після перевірки metadata/fixtures приберіть legacy template metadata:
 
 ```sh
 pmtool migrate
@@ -193,7 +226,8 @@ pmtool sync
 
 При відмінних існуючих файлах tooling відмовляє. Перегляньте diff, перенесіть
 потрібні RSpec customizations у `spec/spec_helper_local.rb` і повторіть sync
-з `--files '.gitignore spec/spec_helper.rb'` лише для погоджених замін.
+з `--files '.gitignore spec/spec_helper.rb'` лише для погоджених замін. Це список
+шляхів через пробіли, без shell-парсингу: назву з пробілом так передати не можна.
 Окремий sync-noop з цим allowlist можна виконати за потреби. Наявні metadata, fixtures та domain code baseline не генерує.
 Не видаляйте керовані файли вручну для обходу конфліктів.
 
@@ -231,15 +265,13 @@ agent-side `<module>::repository_key_checksum`, а не Last-Modified. Пере�
 defaults. Усі інші package/repo fields лишаються сумісними. Перевірте suite/component
 в опублікованому Release: upstream flat layout і layout Pulp mirror можуть відрізнятися.
 
-## 7. Local audit, потім PDK
+## 7. Audit, validation та unit у VoxBox
 
 ```sh
-pmtool audit
+pmtool check
 ```
 
-```sh
-pmtool pdk
-```
+Audit уже є першим кроком check. Окремий pmtool audit потрібний лише для діагностики.
 
 Audit перевіряє керований baseline, ownership та CI. Перевірки metadata/changelog,
 tracked ignored files, contract usage і specs для сутностей задає audit policy шаблону.
@@ -247,7 +279,7 @@ tracked ignored files, contract usage і specs для сутностей зад�
 facts/types/providers/helpers, tasks і plans. Якщо policy вимагає changelog, потрібний
 її заголовок для поточної metadata version, наприклад `## Release VERSION`. Generated lock,
 fixtures і bin, які вже tracked та ignored, потрібно зняти з tracking після review.
-PDK запускає validation і unit; на помилці виправте код і повторіть той самий command.
+VoxBox запускає validation і unit; на помилці виправте код і повторіть той самий command.
 Тести мають перевіряти поведінку, а не лише existence файлів чи aliases.
 
 Для кожної нової сутності додайте відповідний spec; загальні вимоги описані в
@@ -258,7 +290,7 @@ PDK запускає validation і unit; на помилці виправте к
 shared examples можуть бути дозволені його policy.
 
 Якщо обраний профіль вимагає **100% resource coverage**, перевірте enforcement
-в обох runners і збережіть його вимоги до pending/skipped examples.
+у VoxBox і збережіть його вимоги до pending/skipped examples.
 Для `Untouched resources` додайте змістовні resource matchers з параметрами та ordering;
 окремо перевірте негативні, absent і unmanaged сценарії. Не знижуйте поріг, не додавайте
 coverage filters і не замінюйте assertions на завжди позитивні. Цей показник стосується
@@ -267,7 +299,7 @@ coverage filters і не замінюйте assertions на завжди поз�
 Після зміни `template.use` на робочій гілці виконайте sync (sync-noop опційний),
 перегляньте helpers/specs, які обрав саме цей профіль, і запустіть check. Зміна image
 сама по собі не змінює baseline й не потребує sync, якщо audit не виявив drift.
-Поки audit, PDK і VoxBox не зелені за обраною policy, не переходьте до commit/release.
+Поки audit і VoxBox не зелені за обраною policy, не переходьте до commit/release.
 
 ## 8. Bootstrap commit та push
 
@@ -321,7 +353,7 @@ mr-merge або для recovery після невдалого local sync.
 Якщо audit виявив baseline drift, створіть окрему робочу гілку та виконайте sync.
 У разі конфлікту перегляньте diff і повторіть sync з погодженими --files. Потім check, commit/push та MR. Не застосовуйте
 непереглянуті зміни прямо на main. Check не виконує sync baseline і не перемикає
-гілку, але PDK/VoxBox та тести можуть створювати звіти, кеші, fixtures й build
+гілку, але VoxBox та тести можуть створювати звіти, кеші, fixtures й build
 artifacts у робочій копії.
 
 Повна перевірка цього ж clone:
@@ -341,7 +373,8 @@ pmtool release-prepare --version X.Y.Z
 Замініть X.Y.Z погодженою новою версією, вищою за remote main metadata. Редагуйте
 domain code, metadata version, changelog та міграційні приклади на release-гілці.
 Для першого bootstrap-релізу, де потрібна metadata вже merged, не створюйте штучний
-version bump: після перевірки final main переходьте до main-sync та tag.
+version bump: після mr main уже синхронізовано — виконайте check та release-tag.
+Окремий main-sync потрібний лише після standalone merge або для recovery.
 
 Запустіть check. Після успіху — release-submit: локальний комміт і push гілки.
 Файли обираються автоматично, `--files` необов’язковий.
@@ -469,7 +502,8 @@ authoritative. Unrecognized or detached branches receive a review instruction.
 A plain pipeline status query can exit successfully while jobs are still running.
 Its next step is therefore conditional on successful required jobs for the current
 SHA. A successful watcher may suggest guarded merge/tag directly, but those commands
-still recheck CI. Tag completion requests Forge/canary verification before cleanup.
+still recheck CI. The watcher itself does not verify forge-publish or the Forge artifact;
+publication recovery requires those separate checks before cleanup. Tag completion requests Forge/canary verification before cleanup.
 Failure hints request fixing the reported problem and retrying the current command,
 preserving relevant branch/version/ref/files/title options and shell quoting.
 
