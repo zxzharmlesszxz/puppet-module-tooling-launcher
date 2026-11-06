@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## Release 2.0.0
 
 **Breaking changes for 2.0.0**
 
