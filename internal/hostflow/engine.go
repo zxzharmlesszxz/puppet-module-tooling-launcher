@@ -214,7 +214,7 @@ func (e *Engine) guard(clean, main, token bool) error {
 			return err
 		}
 	}
-	for _, marker := range strings.Fields("MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply BISECT_START") {
+	for marker := range strings.FieldsSeq("MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply BISECT_START") {
 		path, err := e.Git.Text("rev-parse", "--git-path", marker)
 		if err != nil {
 			return err
@@ -251,7 +251,7 @@ func (e *Engine) remoteRefs(patterns ...string) (map[string]string, error) {
 		return nil, err
 	}
 	result := map[string]string{}
-	for _, line := range strings.Split(out, "\n") {
+	for line := range strings.SplitSeq(out, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) == 2 {
 			result[fields[1]] = fields[0]

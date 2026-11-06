@@ -15,7 +15,7 @@ GOLANGCI_LINT_VERSION ?= v2.15.0
 GOVULNCHECK_VERSION ?= v1.9.0
 GOSEC_VERSION ?= v2.30.0
 ACTIONLINT_VERSION ?= v1.7.12
-TRIVY_IMAGE ?= aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+TRIVY_IMAGE ?= aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
 TRIVY_CACHE_VOLUME ?= pmtool-trivy-cache
 COVERAGE_THRESHOLD ?= 65.0
 export COVERAGE_THRESHOLD
@@ -113,7 +113,7 @@ build-platform-%: validate-version
 	output="$$DIST/$$build_version"; \
 	mkdir -p "$$output"; \
 	GOOS=$(word 1,$(subst -, ,$*)) GOARCH=$(word 2,$(subst -, ,$*)) go build -trimpath \
-	  -ldflags "-s -w -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/pmtool.version=$$build_version -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/pmtool.defaultImage=$$IMAGE" \
+	  -ldflags "-s -w -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/pmtool.version=$$build_version -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/pmtool.defaultImage=$$IMAGE" \
 	  -o "$$output/pmtool-$$build_version-$*" ./cmd/pmtool
 
 build-native: validate-version $(addprefix build-platform-,$(PLATFORMS))

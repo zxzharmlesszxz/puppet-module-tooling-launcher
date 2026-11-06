@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/templatekit"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/templatekit"
 )
 
 func TestGoValidationPlanOrderStagesImagesAndAliases(t *testing.T) {

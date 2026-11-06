@@ -100,7 +100,7 @@ func Generate(destination string, files map[string][]byte) ([]string, error) {
 		if name == "" || filepath.IsAbs(name) || strings.ContainsAny(name, "\\\x00\r\n") {
 			return nil, fmt.Errorf("unsafe starter path")
 		}
-		for _, part := range strings.Split(name, "/") {
+		for part := range strings.SplitSeq(name, "/") {
 			if part == "" || part == "." || part == ".." || part == ".git" {
 				return nil, fmt.Errorf("unsafe starter path")
 			}

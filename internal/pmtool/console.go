@@ -47,7 +47,7 @@ func cleanMarkdown(text string) string {
 
 func wrapText(text string, width int) []string {
 	lines := []string{""}
-	for _, word := range strings.Fields(text) {
+	for word := range strings.FieldsSeq(text) {
 		last := len(lines) - 1
 		if lines[last] != "" && utf8.RuneCountInString(lines[last])+utf8.RuneCountInString(word)+1 > width {
 			lines = append(lines, word)
@@ -119,7 +119,7 @@ func (a *app) document(markdown, section string) string {
 		}
 	}
 	fenced = false
-	for _, line := range strings.Split(strings.TrimSuffix(markdown, "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSuffix(markdown, "\n"), "\n") {
 		switch {
 		case strings.HasPrefix(line, "```"):
 			flush()

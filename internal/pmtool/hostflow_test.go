@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/workflow"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/workflow"
 )
 
 func TestNativeHostStatusWithoutImageOrConfig(t *testing.T) {

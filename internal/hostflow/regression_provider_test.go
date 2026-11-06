@@ -58,12 +58,12 @@ func TestMigratedProviderJobsAndRequestsAreFullyPaginated(t *testing.T) {
 	}
 }
 func TestMigratedGitHubStatusConclusions(t *testing.T) {
-	for _, conclusion := range strings.Fields("cancelled skipped action_required failure timed_out neutral startup_failure stale unknown") {
+	for conclusion := range strings.FieldsSeq("cancelled skipped action_required failure timed_out neutral startup_failure stale unknown") {
 		if got := normalizedStatus(record{"status": "completed", "conclusion": conclusion}); got == "success" {
 			t.Fatal("unsafe conclusion accepted", conclusion)
 		}
 	}
-	for _, status := range strings.Fields("queued in_progress waiting pending requested") {
+	for status := range strings.FieldsSeq("queued in_progress waiting pending requested") {
 		if normalizedStatus(record{"status": status}) != "running" {
 			t.Fatal(status)
 		}

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/hostflow"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
 )
 
 var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_./:@%+=,-]+$`)
@@ -56,8 +56,7 @@ func (a *app) runHost(args []string, dryRun bool) int {
 		if ctx.Err() != nil {
 			return 130
 		}
-		var exited *exec.ExitError
-		if errors.As(err, &exited) && exited.ExitCode() > 0 {
+		if exited, ok := errors.AsType[*exec.ExitError](err); ok && exited.ExitCode() > 0 {
 			return exited.ExitCode()
 		}
 		return 1

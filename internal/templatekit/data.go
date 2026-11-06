@@ -107,7 +107,7 @@ func Path(name string) error {
 	if name == "" || filepath.IsAbs(name) || strings.ContainsAny(name, "\\\x00\r\n") {
 		return fmt.Errorf("unsafe template path: %q", name)
 	}
-	for _, p := range strings.Split(name, "/") {
+	for p := range strings.SplitSeq(name, "/") {
 		if p == "" || p == "." || p == ".." || p == ".git" {
 			return fmt.Errorf("unsafe template path: %q", name)
 		}

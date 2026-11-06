@@ -174,8 +174,7 @@ func operationExit(err error) int {
 	if err == nil {
 		return 0
 	}
-	var exited *exec.ExitError
-	if errors.As(err, &exited) {
+	if exited, ok := errors.AsType[*exec.ExitError](err); ok {
 		if status, ok := exited.Sys().(syscall.WaitStatus); ok && status.Signaled() {
 			return 128 + int(status.Signal())
 		}

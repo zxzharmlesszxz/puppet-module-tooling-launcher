@@ -24,7 +24,7 @@ func ParseReference(value string) (Reference, error) {
 	if !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+$`).MatchString(repository) || !strings.Contains(strings.Split(repository, "/")[0], ".") {
 		return r, fmt.Errorf("template repository must be host/namespace/repository without credentials or a URL scheme")
 	}
-	for _, part := range strings.Split(repository, "/") {
+	for part := range strings.SplitSeq(repository, "/") {
 		if err := Path(part); err != nil {
 			return r, err
 		}
@@ -86,7 +86,7 @@ func ParseCI(value, provider, host string) (CIReference, error) {
 		if err := Path(s); err != nil {
 			return c, err
 		}
-		for _, v := range strings.Split(s, "/") {
+		for v := range strings.SplitSeq(s, "/") {
 			if !regexp.MustCompile(`^[A-Za-z0-9_.-]+$`).MatchString(v) {
 				return c, fmt.Errorf("unsafe CI path")
 			}
@@ -120,7 +120,7 @@ func (t *Template) CIConfig(provider, host, explicit, legacy string) (string, Ma
 		if !regexp.MustCompile(`^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+$`).MatchString(legacy) {
 			return "", nil, fmt.Errorf("invalid central CI project")
 		}
-		for _, p := range strings.Split(legacy, "/") {
+		for p := range strings.SplitSeq(legacy, "/") {
 			if p == "." || p == ".." {
 				return "", nil, fmt.Errorf("invalid central CI project")
 			}

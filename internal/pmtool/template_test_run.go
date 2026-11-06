@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/hostflow"
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/templatekit"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/templatekit"
 )
 
 func (a *app) runTemplateTest(cfg config, image string, args []string, native, dry bool) int {

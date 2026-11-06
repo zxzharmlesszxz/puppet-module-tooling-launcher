@@ -9,8 +9,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/hostflow"
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/templatekit"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/templatekit"
 )
 
 func (a *app) executeTemplate(cfg config, image string, o operationOptions, kind string, native bool) error {

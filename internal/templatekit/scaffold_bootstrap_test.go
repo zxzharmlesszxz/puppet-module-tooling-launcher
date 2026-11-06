@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/scaffold"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/scaffold"
 
 	"go.yaml.in/yaml/v3"
 )

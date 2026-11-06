@@ -42,7 +42,7 @@ func (e *Engine) selectedFiles(explicit string) ([]string, []string, error) {
 		sort.Strings(files)
 	} else {
 		seen := map[string]bool{}
-		for _, name := range strings.Fields(explicit) {
+		for name := range strings.FieldsSeq(explicit) {
 			if !seen[name] {
 				files = append(files, name)
 				seen[name] = true
@@ -58,7 +58,7 @@ func (e *Engine) selectedFiles(explicit string) ([]string, []string, error) {
 		if path.IsAbs(name) || strings.Contains(name, "\\") || strings.ContainsAny(name, "\r\n\x00") {
 			return nil, nil, fmt.Errorf("unsafe file path %q", name)
 		}
-		for _, part := range strings.Split(name, "/") {
+		for part := range strings.SplitSeq(name, "/") {
 			if part == "" || part == "." || part == ".." || part == ".git" {
 				return nil, nil, fmt.Errorf("unsafe file path %q", name)
 			}

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/docs"
+	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/docs"
 )
 
 func TestEmbeddedDocumentationCoversCommandCatalog(t *testing.T) {

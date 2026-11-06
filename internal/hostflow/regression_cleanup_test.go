@@ -8,7 +8,7 @@ import (
 )
 
 func TestMigratedCleanupRefusalsPreserveRefs(t *testing.T) {
-	for _, scenario := range strings.Fields("dirty unfinished checked_out main_changed open_mr missing_mr wrong_tip disagreement missing_tag lightweight unmerged failed_pipeline missing_pipeline wrong_pipeline_sha failed_publish protected symbolic_tracking missing_token invalid_branch wrong_version api_error") {
+	for scenario := range strings.FieldsSeq("dirty unfinished checked_out main_changed open_mr missing_mr wrong_tip disagreement missing_tag lightweight unmerged failed_pipeline missing_pipeline wrong_pipeline_sha failed_publish protected symbolic_tracking missing_token invalid_branch wrong_version api_error") {
 		t.Run(scenario, func(t *testing.T) {
 			e, api, remote := cleanupFixture(t)
 			head := command(t, e.Project.Root, "rev-parse", "HEAD")
