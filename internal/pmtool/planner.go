@@ -13,24 +13,20 @@ import (
 	"syscall"
 )
 
-const pdkImage = "puppet/pdk@sha256:515d467ccbf1cce98931fbcaa13cbd63d3cec4a7d9f69eb2382bd47e6bda4441"
 const voxboxImage = "ghcr.io/voxpupuli/voxbox:10.1.0-openvox8@sha256:01bb8ce5e24d5b111934660f75e2786b4d7c7adcaa7518a564856d1d3041d10d"
 
 var containerImagePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/:@-]*$`)
 
 type operationOptions struct {
-	Command, Module, Files, Stage, PDK, VoxBox, CIProject string
-	Settings                                              workflowSettings
+	Command, Module, Files, Stage, Name, VoxBox, CIProject string
+	Settings                                               workflowSettings
 }
 
 func (a *app) parseOperation(args []string) operationOptions {
-	o := operationOptions{Command: args[0], Module: a.cwd, PDK: pdkImage, VoxBox: voxboxImage}
-	aliases := map[string]string{"bootstrap-local": "sync", "bootstrap-local-noop": "sync-noop", "audit-local": "audit", "pdk-local": "pdk", "pdk-convert-local": "pdk-convert", "pdk-convert-local-noop": "pdk-convert-noop"}
+	o := operationOptions{Command: args[0], Module: a.cwd, VoxBox: voxboxImage}
+	aliases := map[string]string{"bootstrap-local": "sync", "bootstrap-local-noop": "sync-noop", "audit-local": "audit"}
 	if target := aliases[o.Command]; target != "" {
 		o.Command = target
-	}
-	if v := a.getenv("PDK_IMAGE"); v != "" {
-		o.PDK = v
 	}
 	if v := a.getenv("VOXBOX_IMAGE"); v != "" {
 		o.VoxBox = v
@@ -57,8 +53,8 @@ func (a *app) parseOperation(args []string) operationOptions {
 			o.Files = value
 		case "--stage":
 			o.Stage = value
-		case "--pdk-image":
-			o.PDK = value
+		case "--name":
+			o.Name = value
 		case "--voxbox-image":
 			o.VoxBox = value
 		case "--ci":
@@ -80,8 +76,18 @@ func (a *app) parseOperation(args []string) operationOptions {
 	if !must(os.Stat(o.Module)).IsDir() || o.Module == "/" {
 		fail("module must be a directory other than /")
 	}
-	if o.Stage != "" && ((o.Command != "pdk" && o.Command != "voxbox") || (o.Stage != "validate" && o.Stage != "unit")) {
-		fail("--stage validate|unit is supported only for pdk and voxbox")
+	if o.Stage != "" && ((o.Command != "voxbox") || (o.Stage != "validate" && o.Stage != "unit")) {
+		fail("--stage validate|unit is supported only for voxbox")
+	}
+	if o.Command == "module-new" {
+		if !regexp.MustCompile(`^[a-z][a-z0-9_]*$`).MatchString(o.Name) {
+			fail("module-new requires --name with a lowercase module name")
+		}
+		if _, err := os.Lstat(filepath.Join(o.Module, o.Name)); !os.IsNotExist(err) {
+			fail("module-new destination must not exist")
+		}
+	} else if o.Name != "" {
+		fail("--name is supported only for module-new")
 	}
 	return o
 }
@@ -91,9 +97,6 @@ func (a *app) sequence(o operationOptions) workflowSequence {
 	}
 	tool := func(name, label string, args ...string) workflowStep {
 		image, directory := o.VoxBox, "/repo"
-		if name == "pdk" {
-			image, directory = o.PDK, "/workspace"
-		}
 		if !containerImagePattern.MatchString(image) {
 			fail("a valid tool image is required")
 		}
@@ -107,35 +110,41 @@ func (a *app) sequence(o operationOptions) workflowSequence {
 		if a.getenv("NO_COLOR") != "" {
 			command = append(command, "--env", "NO_COLOR")
 		}
+		if name == "jig" {
+			command = append(command, "--entrypoint", "jig")
+		}
 		command = append(command, image)
 		command = append(command, args...)
 		return workflowStep{Command: command, Label: label, Tool: name, Permission: profile{Module: true}}
 	}
-	pdk := []workflowStep{tool("pdk", "PDK validation", "validate"), tool("pdk", "PDK unit tests", "test", "unit")}
-	vox := []workflowStep{tool("voxbox", "VoxBox validation", "validate"), tool("voxbox", "VoxBox specs", "spec")}
+	vox := []workflowStep{tool("voxbox", "VoxBox validation", "validate", "lint", "rubocop"), tool("voxbox", "VoxBox specs", "spec")}
 	release := tool("voxbox", "Release/changelog checks", "check", "check_changelog")
 	var steps []workflowStep
 	switch o.Command {
 	case "audit", "sync", "sync-noop", "migrate":
 		steps = []workflowStep{host(o.Command, o.Command)}
-	case "pdk":
-		steps = pdk
 	case "voxbox":
 		steps = vox
 	case "release-checks":
 		steps = []workflowStep{release}
-	case "pdk-convert", "pdk-convert-noop":
+	case "module-new":
+		steps = []workflowStep{tool("jig", "Generate module scaffold", "new", "module", o.Name, "--skip-interview")}
+	case "module-build":
+		steps = []workflowStep{tool("jig", "Build module archive", "build")}
+	case "module-convert", "module-convert-noop":
+		if _, err := os.Lstat(filepath.Join(o.Module, ".sync.lock.json")); !os.IsNotExist(err) {
+			fail("module conversion is only for initial onboarding; use sync for a managed baseline")
+		}
 		if info, err := os.Stat(filepath.Join(o.Module, "manifests")); err != nil || !info.IsDir() {
 			fail("missing module manifests directory")
 		}
-		flag := "--force"
+		arguments := []string{"convert", "--skip-interview"}
 		if strings.HasSuffix(o.Command, "-noop") {
-			flag = "--noop"
+			arguments = append(arguments, "--dry-run")
 		}
-		steps = []workflowStep{tool("pdk", "PDK conversion", "convert", "--skip-interview", flag)}
+		steps = []workflowStep{tool("jig", "Convert module scaffold", arguments...)}
 	case "check":
-		steps = append([]workflowStep{host("audit", "Module audit")}, pdk...)
-		steps = append(steps, vox...)
+		steps = append([]workflowStep{host("audit", "Module audit")}, vox...)
 		steps = append(steps, release)
 	default:
 		fail("unsupported validation command: %s", o.Command)

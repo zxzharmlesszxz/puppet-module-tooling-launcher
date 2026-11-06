@@ -17,7 +17,7 @@ import (
 //go:embed all:starter
 var starter embed.FS
 
-type Options struct{ Name, Provider, Version, PDK, VoxBox string }
+type Options struct{ Name, Provider, Version, VoxBox string }
 
 func Files(o Options) (map[string][]byte, error) {
 	if !regexp.MustCompile(`^[a-z][a-z0-9_-]*$`).MatchString(o.Name) {
@@ -141,17 +141,10 @@ func bootstrapShell(version string) string {
 	return strings.ReplaceAll(starterBootstrap, "PMTOOL_RELEASE_VERSION", version)
 }
 
-// Install with the SDK's Ruby, not curl. Both pinned SDKs contain Ruby; PDK
-// supplies its own versions outside PATH. The same script runs in both CI systems.
+// Install with stock VoxBox Ruby and verified HTTPS downloads in both CI systems.
 const starterBootstrap = `set -eu
-if command -v pdk >/dev/null 2>&1; then
-  pmtool_ruby="$(for candidate in /opt/puppetlabs/pdk/private/ruby/*/bin/ruby; do if [ -x "$candidate" ]; then printf '%s\n' "$candidate"; fi; done | sort -V | tail -n 1)"
-  test -n "$pmtool_ruby"
-else
-  pmtool_ruby=ruby
-fi
 pmtool_dir="$(mktemp -d /tmp/pmtool-ci.XXXXXX)"
-"$pmtool_ruby" - "$pmtool_dir" <<'RUBY'
+ruby - "$pmtool_dir" <<'RUBY'
 require 'digest'
 require 'net/http'
 require 'openssl'
@@ -203,16 +196,13 @@ func starterJobs(template bool) map[string]string {
 	if template {
 		return map[string]string{"template-test": "template-test"}
 	}
-	return map[string]string{"module-audit": "audit", "pdk-validate": "pdk --stage validate", "pdk-unit": "pdk --stage unit", "voxbox-validate": "voxbox --stage validate", "voxbox-unit": "voxbox --stage unit"}
+	return map[string]string{"module-audit": "audit", "voxbox-validate": "voxbox --stage validate", "voxbox-unit": "voxbox --stage unit"}
 }
 
 func gitlabCI(o Options, bootstrap string, template bool) ([]byte, error) {
 	root := map[string]any{"stages": []string{"check"}, "workflow": map[string]any{"rules": []any{map[string]any{"if": `$CI_PIPELINE_SOURCE == "push"`}, map[string]any{"when": "never"}}}}
 	for name, command := range starterJobs(template) {
 		image := o.VoxBox
-		if strings.HasPrefix(name, "pdk-") {
-			image = o.PDK
-		}
 		rule := `$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH`
 		if template {
 			rule = `$CI_PIPELINE_SOURCE == "push"`
@@ -239,9 +229,6 @@ func githubCI(o Options, bootstrap string, template bool) ([]byte, error) {
 	jobs := map[string]any{}
 	for name, command := range starterJobs(template) {
 		image := o.VoxBox
-		if strings.HasPrefix(name, "pdk-") {
-			image = o.PDK
-		}
 		jobs[name] = map[string]any{"runs-on": "ubuntu-latest", "container": map[string]any{"image": image}, "steps": []any{
 			map[string]any{"uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "with": map[string]any{"persist-credentials": false}},
 			map[string]any{"name": "Install verified pmtool", "shell": "sh", "run": bootstrap},

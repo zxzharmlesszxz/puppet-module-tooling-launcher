@@ -17,7 +17,7 @@ func TestRealStarterCIBootstrapChecksDownloadedBinary(t *testing.T) {
 	if os.Getenv("PMTOOL_RUBY_TESTS") != "1" {
 		t.Skip("bootstrap Ruby runs in workflow-check SDK")
 	}
-	files, err := scaffold.Files(scaffold.Options{Name: "team", Provider: "gitlab", Version: "v1.1.0", PDK: "pdk:fixture", VoxBox: "voxbox:fixture"})
+	files, err := scaffold.Files(scaffold.Options{Name: "team", Provider: "gitlab", Version: "v2.0.0", VoxBox: "voxbox:fixture"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ Net::HTTP.define_singleton_method(:start) do |_host, _port, **_options, &block|
     end
     bytes = "fixture binary\n"
     checksum = mode == 'bad-checksum' ? '0' * 64 : Digest::SHA256.hexdigest(bytes)
-    binary = "pmtool-v1.1.0-linux-#{RbConfig::CONFIG.fetch('host_cpu').match?(/aarch64|arm64/) ? 'arm64' : 'amd64'}"
+    binary = "pmtool-v2.0.0-linux-#{RbConfig::CONFIG.fetch('host_cpu').match?(/aarch64|arm64/) ? 'arm64' : 'amd64'}"
     entry = "#{checksum}  #{binary}\n"
     body = path.end_with?('/SHA256SUMS') ? entry * (mode == 'duplicate' ? 2 : 1) : bytes
     response = Net::HTTPOK.new('1.1', '200', 'OK')

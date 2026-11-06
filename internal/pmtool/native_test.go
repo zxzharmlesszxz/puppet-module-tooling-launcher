@@ -5,14 +5,14 @@ import (
 	"testing"
 )
 
-func TestNativePDKAndVoxBoxReusePlannedArguments(t *testing.T) {
+func TestNativeJigAndVoxBoxReusePlannedArguments(t *testing.T) {
 	cases := []struct {
 		tool                string
 		arguments, expected []string
 		executable          string
 	}{
-		{"pdk", []string{"validate"}, []string{"validate"}, "pdk"},
-		{"pdk", []string{"test", "unit"}, []string{"test", "unit"}, "pdk"},
+		{"jig", []string{"build"}, []string{"build"}, "jig"},
+		{"voxbox", []string{"validate", "lint", "rubocop"}, []string{"exec", "rake", "-f", "/opt/voxbox/Rakefile", "validate", "lint", "rubocop"}, "bundle"},
 		{"voxbox", []string{"spec"}, []string{"exec", "rake", "-f", "/opt/voxbox/Rakefile", "spec"}, "bundle"},
 	}
 	for _, test := range cases {
@@ -27,6 +27,7 @@ func TestNativePDKAndVoxBoxReusePlannedArguments(t *testing.T) {
 func TestNativeExecutorDoesNotEnableRemoteMutations(t *testing.T) {
 	a, d, _ := testApp(t)
 	expectFailure(t, "validation commands only", func() { a.run([]string{"--executor", "native", "release-tag"}) })
+	expectFailure(t, "host operation", func() { a.run([]string{"--executor", "native", "forge-publish"}) })
 	if len(d.calls) != 0 || len(d.plans) != 0 {
 		t.Fatal("native release contacted a tool")
 	}

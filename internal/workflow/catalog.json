@@ -10,7 +10,6 @@
     "file",
     "files",
     "version",
-    "pdk-image",
     "voxbox-image",
     "section",
     "color",
@@ -268,30 +267,6 @@
       "author": false,
       "template_token": false
     },
-    "pdk": {
-      "module": true,
-      "read_only": false,
-      "socket": false,
-      "token": false,
-      "author": false,
-      "template_token": false
-    },
-    "pdk-convert": {
-      "module": true,
-      "read_only": false,
-      "socket": false,
-      "token": false,
-      "author": false,
-      "template_token": false
-    },
-    "pdk-convert-noop": {
-      "module": true,
-      "read_only": false,
-      "socket": false,
-      "token": false,
-      "author": false,
-      "template_token": false
-    },
     "voxbox": {
       "module": true,
       "read_only": false,
@@ -340,30 +315,6 @@
       "author": false,
       "template_token": true
     },
-    "pdk-local": {
-      "module": true,
-      "read_only": false,
-      "socket": false,
-      "token": false,
-      "author": false,
-      "template_token": false
-    },
-    "pdk-convert-local": {
-      "module": true,
-      "read_only": false,
-      "socket": false,
-      "token": false,
-      "author": false,
-      "template_token": false
-    },
-    "pdk-convert-local-noop": {
-      "module": true,
-      "read_only": false,
-      "socket": false,
-      "token": false,
-      "author": false,
-      "template_token": false
-    },
     "help": {
       "module": false,
       "read_only": false,
@@ -406,6 +357,46 @@
     },
     "template-init": {
       "module": false,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "module-new": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "module-build": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "module-convert": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "module-convert-noop": {
+      "module": true,
+      "read_only": false,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
+    "forge-publish": {
+      "module": true,
       "read_only": false,
       "socket": false,
       "token": false,

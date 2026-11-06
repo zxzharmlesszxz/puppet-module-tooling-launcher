@@ -225,9 +225,11 @@ func Migrate(root string) error {
 			}
 			_, hasURL := metadata["template-url"]
 			_, hasRef := metadata["template-ref"]
-			if hasURL || hasRef {
+			_, hasVersion := metadata["pdk-version"]
+			if hasURL || hasRef || hasVersion {
 				delete(metadata, "template-url")
 				delete(metadata, "template-ref")
+				delete(metadata, "pdk-version")
 				updated, err = jsonBytes(metadata)
 			}
 		} else {

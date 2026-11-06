@@ -21,7 +21,7 @@ CI pins this stable launcher version; development builds require --launcher-vers
 func (a *app) initTemplate(args []string, dry bool) int {
 	flags := flag.NewFlagSet("template-init", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	o := scaffold.Options{Provider: "both", Version: version, PDK: pdkImage, VoxBox: voxboxImage}
+	o := scaffold.Options{Provider: "both", Version: version, VoxBox: voxboxImage}
 	var output string
 	var help bool
 	flags.StringVar(&o.Name, "name", "", "template name")

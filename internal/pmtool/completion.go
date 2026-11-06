@@ -124,7 +124,7 @@ func (a *app) complete(opts options, words []string) int {
 	}
 	if !strings.Contains(current, "=") && len(completionEnum(previous)) == 0 {
 		switch previous {
-		case "--image", "--config", "--docker", "--socket", "--executor", "--stage", "--module", "--output", "--file", "--files", "--ci", "--template", "--ref", "--branch", "--title", "--watch", "--version", "--pdk-image", "--voxbox-image", "--ci-project", "--name", "--launcher-version", "--pipeline", "--job", "--tail":
+		case "--image", "--config", "--docker", "--socket", "--executor", "--stage", "--module", "--output", "--file", "--files", "--ci", "--template", "--ref", "--branch", "--title", "--watch", "--version", "--voxbox-image", "--ci-project", "--name", "--launcher-version", "--pipeline", "--job", "--tail":
 			return 0
 		}
 	}

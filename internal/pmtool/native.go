@@ -13,7 +13,7 @@ func toolArguments(command []string) []string {
 	for index := 2; index < len(command); index++ {
 		switch command[index] {
 		case "--rm", "--tty", "--interactive":
-		case "--volume", "--mount", "--workdir", "--env", "--tmpfs":
+		case "--volume", "--mount", "--workdir", "--env", "--tmpfs", "--entrypoint":
 			index++
 		default:
 			if strings.HasPrefix(command[index], "-") {
@@ -34,8 +34,8 @@ func nativeStep(step workflowStep) plan {
 		fail("native validation requires an external tool step")
 	}
 	arguments := toolArguments(step.Command)
-	if step.Tool == "pdk" {
-		return plan{Docker: "pdk", Args: arguments}
+	if step.Tool == "jig" {
+		return plan{Docker: "jig", Args: arguments}
 	}
 	if step.Tool != "voxbox" {
 		fail("unsupported native tool %q", step.Tool)
@@ -67,9 +67,9 @@ func moduleArgument(cwd string, args []string) string {
 }
 
 func (a *app) runNative(args []string, dryRun bool) int {
-	allowed := map[string]bool{"audit": true, "pdk": true, "voxbox": true, "release-checks": true, "check": true}
+	allowed := map[string]bool{"audit": true, "module-build": true, "voxbox": true, "release-checks": true, "check": true}
 	if !allowed[args[0]] {
-		fail("native executor supports validation commands only; run Git/API commands without --executor native")
+		fail("native executor supports validation commands only (plus module-build); run Git/API commands without --executor native")
 	}
 	return a.executeSequence(config{}, "", args, true, dryRun)
 }

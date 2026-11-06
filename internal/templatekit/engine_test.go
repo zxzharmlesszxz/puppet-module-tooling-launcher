@@ -451,13 +451,13 @@ func TestInventoryValidationAndAtomicReplacement(t *testing.T) {
 }
 func TestMigratePreservesDomainFixturesAndRejectsSymlinks(t *testing.T) {
 	root := t.TempDir()
-	put(t, root, "metadata.json", `{"name":"team-sample","version":"1.2.3","template-url":"url","template-ref":"v1"}`)
+	put(t, root, "metadata.json", `{"name":"team-sample","version":"1.2.3","template-url":"url","template-ref":"v1","pdk-version":"3.4.0"}`)
 	put(t, root, ".fixtures.yml", "fixtures:\n  symlinks:\n    sample: source\n  forge_modules:\n    stdlib: puppetlabs/stdlib\n")
 	put(t, root, ".sync.yml", "template: {use: git.example.test/team/template@v1}\n")
 	if err := Migrate(root); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(read(t, root, "metadata.json"), "template-") || strings.Contains(read(t, root, ".fixtures.yml"), "symlinks") || !strings.Contains(read(t, root, ".fixtures.yml"), "forge_modules") {
+	if strings.Contains(read(t, root, "metadata.json"), "pdk-version") || strings.Contains(read(t, root, "metadata.json"), "template-") || strings.Contains(read(t, root, ".fixtures.yml"), "symlinks") || !strings.Contains(read(t, root, ".fixtures.yml"), "forge_modules") {
 		t.Fatal("migration changed wrong fields")
 	}
 	before := snapshot(t, root)

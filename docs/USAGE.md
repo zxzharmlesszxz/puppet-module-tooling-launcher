@@ -134,3 +134,12 @@ APIs. They do not pull an image or require Ruby. Puppet/RSpec checks and ERB ren
 selected tool environment. The existing command order, optional previews, immutable
 release tags, pinned CI waits and recovery commands are unchanged.
 See [workflow guards](GO-WORKFLOW.md).
+
+## VoxBox module tools
+
+module-new --name NAME creates a new module child with jig. module-convert-noop
+previews initial conversion, module-convert applies it, and module-build creates
+the module archive. Use sync for an existing managed baseline.
+
+forge-publish validates a prebuilt metadata-matching archive and uploads it to
+FORGE_URL over HTTPS using FORGE_PUBLISH_TOKEN from the environment.
