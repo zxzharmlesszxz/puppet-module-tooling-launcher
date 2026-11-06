@@ -142,7 +142,7 @@ func TestTemplateAuditCheckPlansSelectBundleAndClearSecrets(t *testing.T) {
 			if strings.Contains(argv, "docker.sock") || strings.Contains(argv, "GITLAB_TOKEN") || strings.Contains(argv, "TOOLING_TEMPLATE_TOKEN") {
 				t.Fatal("audit check received credentials/socket")
 			}
-			for _, key := range []string{"GITLAB_TOKEN", "GITHUB_TOKEN", "TOOLING_TEMPLATE_TOKEN"} {
+			for _, key := range []string{"GITLAB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "TOOLING_TEMPLATE_TOKEN", "FORGE_PUBLISH_TOKEN"} {
 				if value, ok := p.Environment[key]; !ok || value != "" {
 					t.Fatal("native worker failed to clear credentials", key)
 				}
