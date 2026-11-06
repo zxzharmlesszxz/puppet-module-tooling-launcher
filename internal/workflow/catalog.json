@@ -24,7 +24,8 @@
     "tail",
     "output",
     "name",
-    "launcher-version"
+    "launcher-version",
+    "origin"
   ],
   "commands": {
     "migrate": {

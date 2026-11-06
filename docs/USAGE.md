@@ -143,3 +143,8 @@ the module archive. Use sync for an existing managed baseline.
 
 forge-publish validates a prebuilt metadata-matching archive and uploads it to
 FORGE_URL over HTTPS using FORGE_PUBLISH_TOKEN from the environment.
+
+## Local template origin
+
+template-init --origin URL optionally initializes local Git/main and adds origin.
+It creates no hosted project, commit or push; omission still needs no Git.
