@@ -2,6 +2,8 @@
 
 # Resolves one complete contract group without permitting partial file selection.
 class ToolingGroupSelection
+  BOOLEAN_VALUES = [true, false].freeze
+
   def initialize(profile, name, namespace, normalized)
     @profile = profile
     @name = name
@@ -13,7 +15,7 @@ class ToolingGroupSelection
   def resolve(overrides)
     explicit = overrides.key?(@name)
     selected = overrides[@name]
-    raise ".sync.yml: #{@name} must be true or false" if explicit && ![true, false].include?(selected)
+    raise ".sync.yml: #{@name} must be true or false" if explicit && !BOOLEAN_VALUES.include?(selected)
 
     states = legacy_states(explicit, legacy_disabled?(explicit))
     selected = legacy_selected?(states) unless explicit
@@ -35,7 +37,7 @@ class ToolingGroupSelection
       config = @normalized.fetch(target, {})
       validate_legacy_config(target, config, explicit)
       value = config.fetch('unmanaged', disabled || !@profile.const_get(:ENABLED).include?(@name))
-      raise ".sync.yml: #{target}.unmanaged must be true or false" unless [true, false].include?(value)
+      raise ".sync.yml: #{target}.unmanaged must be true or false" unless BOOLEAN_VALUES.include?(value)
 
       value
     end

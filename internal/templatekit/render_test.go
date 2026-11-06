@@ -57,6 +57,18 @@ func TestRendererProtocolAndModuleSideHelperAssets(t *testing.T) {
 	if strings.Contains(source, "require_relative 'tooling_group_selection'") || strings.Contains(source, "ModuleBootstrap") || !strings.Contains(source, "ToolingContractProfile") {
 		t.Fatal("module-side compatibility helper has workflow dependencies")
 	}
+	if strings.Contains(source, "\n\n\n") || !strings.HasSuffix(source, "\n") {
+		t.Fatal("assembled helper has invalid blank-line boundaries")
+	}
+	if strings.Count(source, "# frozen_string_literal: true") != 1 {
+		t.Fatal("assembled helper must have exactly one leading magic comment")
+	}
+	if strings.Contains(source, "%w[ci template]") || strings.Contains(source, "match?(/") {
+		t.Fatal("helper must not force a module's word-array or regexp literal style")
+	}
+	if strings.Count(source, "\nclass ") != 1 || !strings.Contains(source, "\n  class ToolingGroupSelection\n") {
+		t.Fatal("assembled profile must contain one top-level class with a nested selection helper")
+	}
 	entries, err := Assets.ReadDir("assets")
 	if err != nil || len(entries) != 2 {
 		t.Fatal("unexpected Ruby engine embedded", err)
@@ -141,7 +153,7 @@ func TestRealModuleProfileAgreesWithGoSelection(t *testing.T) {
 			t.Fatal(err)
 		}
 		script := string(output[0]) + "\nrequire 'json'\ninput=JSON.parse(STDIN.read)\nbegin\n  enabled, overrides=ToolingContractProfile.resolve(input,'sample')\n  STDOUT.write(JSON.generate({'enabled'=>enabled,'overrides'=>overrides}))\nrescue StandardError\n  exit 23\nend\n"
-		for _, input := range []Mapping{{}, {"repository": false}, {"package": false}, {"repository": true, "package": true}, {"repository": false, "package": false}, {"types/repo.pp": Mapping{"unmanaged": true}}, {"types/package.pp": Mapping{"unmanaged": true}}, {"repository": "false"}, {"repository": false, "types/repo.pp": Mapping{"unmanaged": true}}, {"types/repo.pp": Mapping{"custom": true}}, {"repositroy": false}} {
+		for _, input := range []Mapping{{}, {"repository": false}, {"package": false}, {"repository": true, "package": true}, {"repository": false, "package": false}, {"types/repo.pp": Mapping{"unmanaged": true}}, {"types/package.pp": Mapping{"unmanaged": true}}, {"repository": "false"}, {"repository": false, "types/repo.pp": Mapping{"unmanaged": true}}, {"types/repo.pp": Mapping{"custom": true}}, {"repositroy": false}, {"template": Mapping{"use": fixtureReference}}, {"ci": Mapping{"provider": "gitlab"}}} {
 			selection, goErr := template.Select(input, "sample")
 			data, err := json.Marshal(input)
 			if err != nil {

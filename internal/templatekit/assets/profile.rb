@@ -8,6 +8,9 @@ class ToolingContractProfile
   ENABLED = [].freeze
   ALLOW_OVERRIDES = false
   KEY_CHECKSUM_TARGETS = [].freeze
+  RESERVED_KEYS = { 'ci' => true, 'template' => true }.freeze
+  NAMESPACE_TOKEN = (+'%').concat('{namespace}').freeze
+  BOOLEAN_VALUES = [true, false].freeze
 
   def self.configure(groups, enabled, allow_overrides)
     { GROUPS: groups, ENABLED: enabled, ALLOW_OVERRIDES: allow_overrides,
@@ -22,12 +25,12 @@ class ToolingContractProfile
 
   def self.path(target, namespace = nil)
     raise '.sync.yml: file target must be a String' unless target.is_a?(String)
-    return target unless target.match?(/%\{namespace\}/) && namespace
-    unless namespace.is_a?(String) && namespace.match?(/\A[a-z][a-z0-9_]*\z/)
+    return target unless target.include?(NAMESPACE_TOKEN) && namespace
+    unless namespace.is_a?(String) && namespace.match?('\A[a-z][a-z0-9_]*\z')
       raise '.sync.yml: invalid module namespace for baseline path'
     end
 
-    target.gsub(/%\{(?<name>namespace)\}/, namespace)
+    target.gsub(NAMESPACE_TOKEN, namespace)
   end
 
   def self.targets(group, namespace = nil)
@@ -46,11 +49,11 @@ class ToolingContractProfile
   end
 
   def self.normalize_overrides(overrides, namespace)
-    values = overrides.reject { |key, _value| GROUPS.key?(key) || %w[ci template].include?(key) }
+    values = overrides.reject { |key, _value| GROUPS.key?(key) || RESERVED_KEYS.key?(key) }
     values.each_with_object({}) do |(key, value), normalized|
       target = path(key, namespace)
       raise ".sync.yml: duplicate configuration for #{target}" if normalized.key?(target)
-      raise ".sync.yml: unknown contract group #{target.inspect}" if [true, false].include?(value)
+      raise ".sync.yml: unknown contract group #{target.inspect}" if BOOLEAN_VALUES.include?(value)
       raise ".sync.yml: expected a mapping for #{target}" unless value.is_a?(Hash)
 
       normalized[target] = value
