@@ -13,8 +13,8 @@ pmtool manifest
 
 - Local discovery: help, docs, manifest, settings; root version, config, completion and ai export.
 - Module preparation: bootstrap-prepare, main-sync, release-prepare, migrate.
-- Baseline/checks: sync, sync-noop, audit, check, pdk, voxbox, pdk-convert,
-  pdk-convert-noop, release-checks, template-init, template-test.
+- Baseline/checks: sync, sync-noop, audit, check, voxbox, release-checks, template-init, template-test.
+- Scaffolding/packages: module-new, module-convert, module-convert-noop, module-build, forge-publish.
 - Module commits: bootstrap-commit, bootstrap-commit-noop, release-commit,
   release-commit-noop, release-submit.
 - Module pushes/tags: bootstrap-push, bootstrap-push-noop, release-push,
@@ -22,8 +22,7 @@ pmtool manifest
 - Requests and CI: mr, mr-create, mr-merge, pipeline-jobs, pipeline-logs.
 - Policy and cleanup: policy, policy-noop, policy-delete-master, cleanup, cleanup-noop.
 - Inspection: status, diff.
-- Compatibility aliases: bootstrap-local, bootstrap-local-noop, audit-local,
-  pdk-local, pdk-convert-local, pdk-convert-local-noop. See the
+- Compatibility aliases: bootstrap-local, bootstrap-local-noop, audit-local. See the
   [alias mapping](manual.md#compatibility-commands-and-optional-previews).
 
 Commands accept their own options, not every flag in manifest. Root flags precede
@@ -41,8 +40,9 @@ come from .sync.yml with CLI precedence. See [manual](manual.md).
 ## Template authoring and CI logs
 
 Use template-init --name NAME --output NEW_DIRECTORY --provider gitlab|github|both
-(default both) to create a neutral schema-1 validation starter. It runs offline,
-without Docker or Git. Existing destinations are refused. Review its policies and
+(default both) to create a neutral schema-1 validation starter. It runs offline
+without Docker; Git is needed only with explicit --origin URL to initialize main
+and add the remote locally. No hosted project, commit or push is created. Existing destinations are refused. Review its policies and
 run template-test; add tested team contracts and publication gates before adoption.
 
 ```text
@@ -58,8 +58,9 @@ job tails without changing release guards or hiding the original error. See the
 
 ## Local inspection and baseline
 
-Use status and diff (--file optional) to inspect changes. migrate detaches PDK
-metadata/fixtures. It removes only fixtures.symlinks through YAML parsing, preserving
+Use status and diff (--file optional) to inspect changes. migrate detaches legacy template
+metadata/fixtures. It removes template-url, template-ref and pdk-version from
+metadata.json without running PDK. In .fixtures.yml it removes only fixtures.symlinks, preserving
 unrelated data and comments; malformed fixture mappings fail explicitly. Expand a
 shared fixtures alias before migration. sync-noop previews the baseline; sync applies reviewed changes
 without commit/push. Existing conflicts require reviewed --files. audit enforces
@@ -67,21 +68,23 @@ the selected template baseline and policy without granting remote mutation acces
 
 pipeline-jobs uses --ref or --branch (current branch by default), the server
 branch SHA where available, and --watch 0..86400 (default 0). A one-shot read can
-succeed while CI is active. Finished failed CI returns an error. Module CLI logs
+succeed while CI is active. Finished failed CI returns an error. A green watcher
+does not check the forge-publish job or replace release-tag publication guards. Module CLI logs
 use all jobs by default and a per-job tail; source Make logs default to failed
 jobs and tail the combined gh output, with positive TAIL only.
 
 ## Validation
 
-check executes audit, PDK validation/unit, VoxBox validation/specs and release checks
+check executes audit, VoxBox validation/specs and release checks
 in order. It stops before later steps after failure and preserves the exit code.
-Standalone pdk, voxbox and release-checks support diagnosis. --stage validate|unit
-selects one PDK/VoxBox phase; it is not accepted as a way to shorten full check.
+Standalone voxbox and release-checks support diagnosis. --stage validate|unit
+selects one VoxBox phase; it is not accepted as a way to shorten full check.
 No validator receives provider/template credentials or a Docker socket.
 
 Native CI uses the same plan with installed tools and no Docker. Its workflow
-executor permits validation/template tests only and rejects host Git/API reads
-as well as mutations; local help/settings/template-init bypass that dispatch. It is not a filesystem sandbox. template-test
+executor permits validation/template tests and module-build and rejects host Git/API reads
+as well as mutations. forge-publish also rejects --executor native and runs
+directly on the host; local help/settings/template-init bypass executor dispatch. It is not a filesystem sandbox. template-test
 loads and self-checks the baseline in Go, then runs the team's test/run.rb with
 PMTOOL_TEMPLATE_FIXTURE pointing to a temporary JSON fixture. Docker mounts that
 fixture read-only; native execution keeps the job user's filesystem permissions. No launcher source tree
@@ -90,7 +93,7 @@ or Ruby engine API is exposed to template tests.
 ## Bootstrap and release
 
 For bootstrap: reviewed policy-noop/policy, bootstrap-prepare --branch
-bootstrap/PURPOSE, optional PDK conversion, migrate, sync, implementation, check,
+bootstrap/PURPOSE, optional module conversion, migrate, sync, implementation, check,
 bootstrap-commit, bootstrap-push, mr, check and release-tag.
 
 For an existing module:
@@ -134,3 +137,17 @@ APIs. They do not pull an image or require Ruby. Puppet/RSpec checks and ERB ren
 selected tool environment. The existing command order, optional previews, immutable
 release tags, pinned CI waits and recovery commands are unchanged.
 See [workflow guards](GO-WORKFLOW.md).
+
+## Module scaffolding and publication
+
+module-new --name NAME creates a new jig scaffold. Initial onboarding can use
+module-convert-noop/module-convert before the first managed sync. module-build
+packages the module with jig; forge-publish uploads a metadata-matching archive
+through the Go V3 client using FORGE_URL/FORGE_PUBLISH_TOKEN, with no redirects,
+automatic retry or overwrite. Read [scaffolding and publication](manual.md#module-scaffolding-conversion-and-packages)
+for conversion and packaging rules, and [Forge upload](manual.md#forge-upload)
+for archive validation, credentials and CI boundaries.
+
+A team template may reject missing OS/release facts, pending/empty suites and
+resource coverage below 100%; these gates belong to its selected policy. Fact availability is
+not proof of scenario coverage. See [OS matrix completeness](manual.md#os-matrix-completeness).

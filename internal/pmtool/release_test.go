@@ -12,7 +12,7 @@ func TestVersionedBuildArtifacts(t *testing.T) {
 	if _, err := exec.LookPath("sha256sum"); err != nil {
 		t.Skip("release build runs in the Linux compiler image with sha256sum")
 	}
-	for _, input := range []string{"dev", "dev-" + strings.Repeat("a", 40), "1.2.3", "v1.2.3", "v0.0.1"} {
+	for _, input := range []string{"dev", "dev-" + strings.Repeat("a", 40), "1.2.3", "v1.2.3", "v0.0.1", "2.0.0", "v2.0.0"} {
 		t.Run(input, func(t *testing.T) {
 			dir := t.TempDir()
 			fakeGo := filepath.Join(dir, "go")
@@ -44,7 +44,7 @@ printf '%s/%s\n%s\n' "$GOOS" "$GOARCH" "$flags" > "$output"
 			for _, target := range []string{"linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64"} {
 				name := "pmtool-" + selected + "-" + target
 				data, err := os.ReadFile(filepath.Join(outputDir, name))
-				if err != nil || !strings.HasPrefix(string(data), strings.ReplaceAll(target, "-", "/")+"\n") || !strings.Contains(string(data), "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/pmtool.version="+selected+" ") || !strings.Contains(string(data), "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/pmtool.defaultImage=registry.example/tooling:v9") {
+				if err != nil || !strings.HasPrefix(string(data), strings.ReplaceAll(target, "-", "/")+"\n") || !strings.Contains(string(data), "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/pmtool.version="+selected+" ") || !strings.Contains(string(data), "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/pmtool.defaultImage=registry.example/tooling:v9") {
 					t.Fatalf("artifact %s lost the selected version/image: %v: %s", name, err, data)
 				}
 			}

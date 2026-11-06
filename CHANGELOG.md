@@ -1,5 +1,35 @@
 # Changelog
 
+## Release 2.0.0
+
+**Breaking changes for 2.0.0**
+
+- Remove all PDK commands/aliases and PDK image selectors; use the VoxBox/jig toolchain and update the consuming team's versioned CI template before module rollout.
+- Move the Go module and internal import/linker paths to github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2; the repository, binary name, release URLs and user config location stay the same.
+
+**Changes**
+
+- Add optional template-init --origin to initialize local Git/main and its remote without commits, pushes or network access; previews and default generation remain Git-free.
+
+- Preserve syntax, Puppet lint and RuboCop as mandatory tasks in the VoxBox validation step.
+- Remove the PDK runtime, commands, image selectors and CI lanes. Run check as audit, VoxBox validation/specs and release checks on pinned OpenVox 8.
+- Add jig-backed module-new, module-convert (with optional preview) and module-build; publish reviewed archives to an explicit HTTPS Forge without exposing tokens in arguments.
+- Generate GitLab/GitHub starters with one VoxBox toolchain and verified launcher downloads.
+
+**Bugfixes**
+
+- Verify the full gzip stream before Forge uploads, rejecting corrupt/truncated footers and archives exceeding the unpacked size limit.
+- Remove GH_TOKEN from native validation workers and redact the configured Forge publishing token from CI logs.
+- Assemble module-side profile helpers under one top-level class with clean boundaries and avoid imposing regexp/word-array literal styles on consuming modules.
+- Add regression guards for generated helper boundaries and reserved template/CI settings.
+
+**Maintenance**
+
+- Align the module minimum Go version with the pinned Go 1.27.3 build/check toolchain.
+- Use typed error matching and string iterators for value-only loops while preserving wrapped-error and exit-status handling.
+- Align English/Ukrainian manuals and assistant guidance with native jig builds, explicit Forge uploads and template-owned audit policy.
+- Update the development Trivy scanner to 0.76.2, pinned to its multi-platform image digest.
+
 ## Release 1.1.0
 
 **Features**

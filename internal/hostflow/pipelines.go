@@ -83,7 +83,7 @@ func (e *Engine) mainCI(sha string, wait bool) error {
 			return err
 		}
 		waiting := false
-		for _, status := range strings.Fields("created waiting_for_resource preparing pending running scheduled") {
+		for status := range strings.FieldsSeq("created waiting_for_resource preparing pending running scheduled") {
 			values, err := e.API.Pipelines(e.Context, PipelineQuery{Status: status})
 			if err != nil {
 				return err

@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/templatekit"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/templatekit"
 )
 
 func TestGoValidationPlanOrderStagesImagesAndAliases(t *testing.T) {
 	a, _, _ := testApp(t)
-	for command, count := range map[string]int{"check": 6, "pdk": 2, "voxbox": 2, "audit": 1, "sync": 1, "sync-noop": 1, "migrate": 1, "release-checks": 1} {
+	for command, count := range map[string]int{"check": 4, "module-build": 1, "voxbox": 2, "audit": 1, "sync": 1, "sync-noop": 1, "migrate": 1, "release-checks": 1} {
 		o := a.parseOperation([]string{command})
 		steps := a.sequence(o).Steps
 		if len(steps) != count {
@@ -34,13 +34,16 @@ func TestGoValidationPlanOrderStagesImagesAndAliases(t *testing.T) {
 	for _, step := range steps {
 		labels = append(labels, step.Label)
 	}
-	if !reflect.DeepEqual(labels, []string{"Module audit", "PDK validation", "PDK unit tests", "VoxBox validation", "VoxBox specs", "Release/changelog checks"}) || steps[0].Kind != "audit" {
+	if !reflect.DeepEqual(labels, []string{"Module audit", "VoxBox validation", "VoxBox specs", "Release/changelog checks"}) || steps[0].Kind != "audit" {
 		t.Fatal(labels)
 	}
-	if !strings.Contains(strings.Join(steps[1].Command, " "), pdkImage) || !strings.Contains(strings.Join(steps[3].Command, " "), voxboxImage) {
+	if !strings.Contains(strings.Join(steps[1].Command, " "), voxboxImage) || !strings.Contains(strings.Join(steps[2].Command, " "), voxboxImage) {
 		t.Fatal("default tool image changed")
 	}
-	for _, tool := range []string{"pdk", "voxbox"} {
+	if !reflect.DeepEqual(toolArguments(steps[1].Command), []string{"validate", "lint", "rubocop"}) {
+		t.Fatal("validation lost syntax, Puppet lint or Ruby lint")
+	}
+	for _, tool := range []string{"voxbox"} {
 		for _, stage := range []string{"validate", "unit"} {
 			o := a.parseOperation([]string{tool, "--stage", stage})
 			selected := a.sequence(o).Steps
@@ -49,7 +52,7 @@ func TestGoValidationPlanOrderStagesImagesAndAliases(t *testing.T) {
 			}
 		}
 	}
-	for alias, target := range map[string]string{"bootstrap-local": "sync", "bootstrap-local-noop": "sync-noop", "audit-local": "audit", "pdk-local": "pdk"} {
+	for alias, target := range map[string]string{"bootstrap-local": "sync", "bootstrap-local-noop": "sync-noop", "audit-local": "audit"} {
 		if o := a.parseOperation([]string{alias}); o.Command != target {
 			t.Fatal(alias, o)
 		}
@@ -66,7 +69,7 @@ func TestRuntimeOptionsAndGuardsAreNative(t *testing.T) {
 		{[]string{"audit", "--unknown", "x"}, "unsupported runtime option"},
 		{[]string{"audit", "--module"}, "missing value"},
 		{[]string{"check", "--stage", "validate"}, "supported only"},
-		{[]string{"pdk", "--stage", "invalid"}, "validate|unit"},
+		{[]string{"voxbox", "--stage", "invalid"}, "validate|unit"},
 		{[]string{"audit", "--template="}, "must not be empty"},
 	} {
 		expectFailure(t, row.fragment, func() { a.parseOperation(row.args) })
@@ -142,7 +145,7 @@ func TestTemplateAuditCheckPlansSelectBundleAndClearSecrets(t *testing.T) {
 			if strings.Contains(argv, "docker.sock") || strings.Contains(argv, "GITLAB_TOKEN") || strings.Contains(argv, "TOOLING_TEMPLATE_TOKEN") {
 				t.Fatal("audit check received credentials/socket")
 			}
-			for _, key := range []string{"GITLAB_TOKEN", "GITHUB_TOKEN", "TOOLING_TEMPLATE_TOKEN"} {
+			for _, key := range []string{"GITLAB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "TOOLING_TEMPLATE_TOKEN", "FORGE_PUBLISH_TOKEN"} {
 				if value, ok := p.Environment[key]; !ok || value != "" {
 					t.Fatal("native worker failed to clear credentials", key)
 				}

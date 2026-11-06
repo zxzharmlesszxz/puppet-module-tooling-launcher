@@ -229,7 +229,7 @@ func TestMigratedMainSyncIsIdempotentAndDoesNotPublish(t *testing.T) {
 	}
 }
 func TestMigratedAllGitOperationMarkers(t *testing.T) {
-	for _, marker := range strings.Fields("MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply BISECT_START") {
+	for marker := range strings.FieldsSeq("MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply BISECT_START") {
 		t.Run(marker, func(t *testing.T) {
 			e, _, _, remote := fixture(t)
 			if strings.HasPrefix(marker, "rebase-") {
@@ -275,7 +275,7 @@ func TestMigratedNoColorPreviewOverridesGitConfig(t *testing.T) {
 }
 func TestMigratedMainWaitActiveAndTerminalMatrix(t *testing.T) {
 	for _, noop := range []bool{true, false} {
-		for _, status := range strings.Fields("created waiting_for_resource preparing pending running scheduled failed canceled skipped manual unknown missing api_error wrong_sha") {
+		for status := range strings.FieldsSeq("created waiting_for_resource preparing pending running scheduled failed canceled skipped manual unknown missing api_error wrong_sha") {
 			t.Run(map[bool]string{true: "preview", false: "apply"}[noop]+"/"+status, func(t *testing.T) {
 				e, api, _, remote := fixture(t)
 				head := command(t, e.Project.Root, "rev-parse", "HEAD")

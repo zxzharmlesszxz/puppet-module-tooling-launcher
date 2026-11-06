@@ -100,15 +100,15 @@ func Guidance(o Options, root string, c GuidanceContext, success bool) (string, 
 	case "status", "diff":
 		return "Review clone state and changes before choosing the next operation.", nil
 	case "bootstrap-prepare":
-		return "Inspect the module; preview PDK conversion if needed, then migrate and sync:", selected("sync")
+		return "Inspect metadata/fixtures, migrate legacy settings and synchronize the baseline:", selected("sync")
 	case "release-prepare":
 		return "Update metadata/changelog for " + o.Version + "; synchronize the baseline:", selected("sync")
 	case "migrate":
 		return "", selected("sync")
-	case "pdk-convert-noop":
-		return "Review the conversion report before applying:", selected("pdk-convert")
-	case "pdk-convert":
-		return "Correct module metadata and fixtures, then detach the PDK template:", selected("migrate")
+	case "module-convert-noop":
+		return "Review the conversion preview before applying:", selected("module-convert")
+	case "module-convert":
+		return "Review metadata/fixtures, then migrate legacy settings:", selected("migrate")
 	case "sync-noop":
 		var flags []string
 		if o.Files != "" {
@@ -117,8 +117,8 @@ func Guidance(o Options, root string, c GuidanceContext, success bool) (string, 
 		return "If changed, review then apply; if unchanged, continue with check:", selected("sync", flags...)
 	case "sync", "main-sync", "mr", "audit":
 		return "", selected("check")
-	case "pdk":
-		return "", selected("voxbox")
+	case "module-new", "module-build":
+		return "Review generated files and metadata before choosing the next operation.", nil
 	case "voxbox":
 		return "", selected("release-checks")
 	case "bootstrap-commit":

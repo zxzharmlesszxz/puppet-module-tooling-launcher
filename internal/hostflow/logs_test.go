@@ -150,11 +150,19 @@ func TestPipelineLogsSelectsMembershipTailAndExclusiveOutput(t *testing.T) {
 func TestPipelineLogsRedactsBeforeTailingAndPreservesFailure(t *testing.T) {
 	e, api := logsFixture(t)
 	secret := e.Git.Token
+	forgeSecret := "test-forge-publish-token"
+	getenv := e.Getenv
+	e.Getenv = func(key string) string {
+		if key == "FORGE_PUBLISH_TOKEN" {
+			return forgeSecret
+		}
+		return getenv(key)
+	}
 	api.jobLog = func(int64) ([]byte, error) {
-		return []byte("\x1b[31mfirst\x1b[0m\n" + secret + "\nhttps://user:password@example.invalid/\n" + base64.StdEncoding.EncodeToString([]byte("oauth2:"+secret)) + "\nlast\n"), nil
+		return []byte("\x1b[31mfirst\x1b[0m\n" + secret + "\nhttps://user:password@example.invalid/\n" + base64.StdEncoding.EncodeToString([]byte("oauth2:"+secret)) + "\n" + forgeSecret + "\nlast\n"), nil
 	}
 	body, err := e.collectLogs(Pipeline{ID: 7}, Options{Failed: true, Tail: 0})
-	if err != nil || strings.Contains(string(body), secret) || strings.Contains(string(body), "password") || strings.Contains(string(body), "\x1b") || !strings.Contains(string(body), "[REDACTED]") {
+	if err != nil || strings.Contains(string(body), secret) || strings.Contains(string(body), forgeSecret) || strings.Contains(string(body), "password") || strings.Contains(string(body), "\x1b") || !strings.Contains(string(body), "[REDACTED]") {
 		t.Fatalf("unsafe output: %q %v", body, err)
 	}
 	api.jobLog = func(int64) ([]byte, error) { return nil, fmt.Errorf("expired") }

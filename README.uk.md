@@ -10,7 +10,8 @@
 ## Використання
 
 Встановіть бінарник Linux/macOS amd64/arm64 як pmtool. Для типового executor
-потрібні Docker CLI і локальний daemon. Із папки модуля:
+потрібні Docker CLI і локальний daemon. Із уже налаштованого модуля,
+де .sync.yml вибирає опублікований шаблон:
 
 ```sh
 pmtool config init
@@ -20,10 +21,22 @@ pmtool check
 Конфіг: ~/.config/puppet-module-tooling/config.json. Він містить image і Docker
 executable, без токенів і параметрів модулів. Типовий image:
 ghcr.io/voxpupuli/voxbox:10.1.0-openvox8@sha256:01bb8ce5e24d5b111934660f75e2786b4d7c7adcaa7518a564856d1d3041d10d.
-config.image/--image задає середовище ERB/audit/template-test. PDK/VoxBox validators
-використовують окремі pins: --pdk-image/PDK_IMAGE і --voxbox-image/VOXBOX_IMAGE.
-Шаблон, CI та provider задаються в .sync.yml; пріоритет CLI → .sync.yml → provider
-з origin. CI за замовчуванням береться з тієї самої версії шаблону.
+config.image/--image задає середовище ERB/audit/template-test. VoxBox validators
+і команди jig використовують окремі pins: --voxbox-image/VOXBOX_IMAGE.
+Вибір модуля зберігається у .sync.yml:
+
+```yaml
+template:
+  use: 'git.example.com/team/module-template@v1.0.0'
+ci:
+  provider: gitlab
+```
+
+Шаблон: --template → template.use, без неявного шаблону.
+CI: --ci → ci.use → CI шаблону на тому самому resolved SHA.
+Provider: --provider → ci.provider → визначення з origin.
+Для першого підключення наявного модуля виконайте [bootstrap](docs/MODULE-ONBOARDING.md#3-bootstrap-гілка),
+перш ніж запускати check проти ще не синхронізованого baseline.
 
 Git/API-команди наразі вимагають назву репозиторію `puppet-<module>`; lifecycle
 звіряє назву модуля з metadata. Це чинне обмеження хостового workflow.
@@ -44,11 +57,15 @@ pmtool pipeline-logs --pipeline 123 --job 456 --tail 0 --output ./job.log
 ```
 
 `template-init` локально створює новий каталог із manifest schema 1, defaults,
-ERB-прикладом, документацією, тестами та CI GitLab/GitHub. Docker, Git і мережа
-для генерації не потрібні. Наявні каталоги та файли не перезаписуються.
+ERB-прикладом, документацією, тестами та CI GitLab/GitHub. Без --origin Docker, Git
+і мережа для генерації не потрібні. --origin URL опційно ініціалізує Git/main і додає
+remote без коммітів чи пушів; без параметра Git не потрібний. Hosted project
+створюється окремо. Наявні каталоги та файли не перезаписуються.
 Це стартовий пакет валідації: контракти команди й публікацію Forge додають явно.
 CI закріплює стабільну версію генератора; для dev-бінаря задайте
-`--launcher-version vX.Y.Z`. Див. [формат шаблону](docs/TEMPLATES.md#create-a-template).
+`--launcher-version vX.Y.Z`. Окремо створіть remote-репозиторій шаблону,
+підключіть його через --origin при генерації або вручну перед публікацією. Деталі:
+[підключення та публікація](docs/TEMPLATES.md#connect-and-publish-the-repository).
 
 `pipeline-logs` читає логи через API поточного провайдера без змін Git.
 За замовчуванням виводить останні 100 рядків кожного job; `--failed` залишає
@@ -82,21 +99,21 @@ provider. Docker, Ruby SDK та image-конфіг для них не потрі
 Контейнер виконує лише JSON/ERB worker та Puppet/RSpec-перевірки шаблону.
 Оновлення workflow потребує перевипуску pmtool, а не перебудови image.
 
-PDK/VoxBox запускає хостовий pmtool. Docker socket у контейнери не передається.
+VoxBox запускає хостовий pmtool. Docker socket у контейнери не передається.
 Токени шаблону/provider та автор комміту надаються лише потрібному кроку.
 Validator-кроки їх не отримують.
 
 Для CI, де потрібні інструменти вже встановлені в job image:
 
 ```sh
-pmtool --executor native pdk --stage validate
 pmtool --executor native voxbox --stage unit
 pmtool --executor native audit
 ```
 
 Native використовує той самий план, без Docker. Це явний режим із доступом
 до файлової системи й environment користувача job, а не sandbox. Host Git/API
-команди, включно з читанням, запускайте без --executor native. Для повного check потрібні обидва toolchain.
+команди, включно з читанням, і forge-publish запускайте без --executor native.
+Повний check використовує VoxBox. Native module-build запускає встановлений jig.
 
 ## Структура
 
@@ -115,7 +132,7 @@ test/               перевірки Make-таргетів source-релізі
 
 ```sh
 make format
-make build VERSION=v1.1.0
+make build VERSION=v2.0.0
 ```
 
 Build включає Go/Ruby перевірки, security, збірку чотирьох бінарників,
@@ -124,18 +141,18 @@ LICENSE/SHA256SUMS і smoke. Runtime — закріплений upstream VoxBox 
 Source-реліз керується Make-таргетами через Git та GitHub CLI. Із чистого main:
 
 ```sh
-make release-prepare VERSION=v1.2.3
+make release-prepare VERSION=v2.0.0
 ```
 
 Після змін коду й записів під `## Unreleased`:
 
 ```sh
 make check
-make release-submit VERSION=v1.2.3 MESSAGE='Describe the implementation'
-make mr VERSION=v1.2.3
+make release-submit VERSION=v2.0.0 MESSAGE='Describe the implementation'
+make mr VERSION=v2.0.0
 ```
 
-Submit створює комміт коду, окремий `chore(release): prepare v1.2.3` зі зміною
+Submit створює комміт коду, окремий `chore(release): prepare v2.0.0` зі зміною
 лише заголовка changelog і пушить гілку без тегів. `mr` створює або використовує
 наявний PR, чекає CI точного SHA, зливає його, синхронізує main та завантажує і
 перевіряє CI-артефакти. VERSION-файла немає. Виправлення до незмердженого релізу
@@ -155,7 +172,7 @@ FAILED_ONLY=0 включає логи успішних jobs. Перегляд CI
 Після цього публікуємо:
 
 ```sh
-make push-release VERSION=v1.2.3
+make push-release VERSION=v2.0.0
 ```
 
 Перевірки артефактів, preflight, точного main, незмінного анотованого тега та
@@ -173,7 +190,18 @@ MIT License. Copyright (c) 2026 Denys Razumov. [LICENSE](LICENSE).
 
 make voxbox-check запускає Go-регресії шаблонів із реальним ERB та строгий RuboCop Ruby-assets, потім security-сканування
 закріпленого релізного upstream-образу з OpenVox 8. Знайдені вразливості дають
-[WARN] і код 0; помилки завантаження образу чи сканера лишаються помилками.
+`[WARN]` і код 0; помилки завантаження образу чи сканера лишаються помилками.
 Скан запускається явно, а не при кожній команді pmtool. Перевірки нашого
 Go-коду й вихідних файлів залишаються обов’язковими. Власний image не збирається. Для тестів шаблону
 зберігаються поточний VoxBox bundle і lockfile. Stock VoxBox є типовим runtime.
+
+Каркас і пакування: module-new/module-convert/module-build через jig.
+Публікація: forge-publish у Go з FORGE_URL/FORGE_PUBLISH_TOKEN; release gates лишаються в CI.
+Деталі — [інструкція](docs/manual.uk.md#каркас-модуля-конвертація-та-пакування).
+
+## Перехід на версію 2
+
+Прибрано команди/aliases PDK і його image selectors. Спочатку опублікуйте launcher
+та оновлений командний шаблон CI; потім переходьте до sync/check модулів.
+Go module/imports використовують /v2; ім’я бінарника pmtool і release URL незмінні.
+Деталі — [перехід на 2.0](docs/manual.uk.md#перехід-на-20).

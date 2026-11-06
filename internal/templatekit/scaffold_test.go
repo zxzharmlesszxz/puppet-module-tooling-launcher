@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/scaffold"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/scaffold"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -53,7 +53,7 @@ func TestGeneratedGitHubWorkflowAcceptsEngineCallerSecrets(t *testing.T) {
 
 func generatedTemplate(t *testing.T, provider string) *Template {
 	t.Helper()
-	files, err := scaffold.Files(scaffold.Options{Name: "team", Provider: provider, Version: "v1.1.0", PDK: "pdk:fixture", VoxBox: "voxbox:fixture"})
+	files, err := scaffold.Files(scaffold.Options{Name: "team", Provider: provider, Version: "v2.0.0", VoxBox: "voxbox:fixture"})
 	if err != nil {
 		t.Fatal(err)
 	}

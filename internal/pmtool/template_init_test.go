@@ -14,7 +14,7 @@ func TestTemplateInitIsLocalAndNeverOverwrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.cwd = physical
-	args := []string{"template-init", "--name", "team", "--output", "new-template", "--provider", "gitlab", "--launcher-version", "v1.1.0"}
+	args := []string{"template-init", "--name", "team", "--output", "new-template", "--provider", "gitlab", "--launcher-version", "v2.0.0"}
 	if code := a.run(append([]string{"--dry-run"}, args...)); code != 0 || !strings.Contains(out.String(), "template.yml") {
 		t.Fatal("invalid preview")
 	}
@@ -41,6 +41,21 @@ func TestNewFeatureCompletionIsLocal(t *testing.T) {
 	a.run([]string{"__complete", "template-init", "--provider", ""})
 	if !strings.Contains(out.String(), "both") {
 		t.Fatal("missing both-provider choice")
+	}
+	out.Reset()
+	a.run([]string{"__complete", "template-init", "--or"})
+	if out.String() != "--origin\n" {
+		t.Fatal("missing template origin flag")
+	}
+	out.Reset()
+	a.run([]string{"__complete", "template-init", "--origin", ""})
+	if out.Len() != 0 {
+		t.Fatal("origin value received command suggestions")
+	}
+	out.Reset()
+	a.run([]string{"__complete", "audit", "--or"})
+	if out.Len() != 0 {
+		t.Fatal("template-only origin suggested for audit")
 	}
 	out.Reset()
 	a.run([]string{"__complete", "pipeline-logs", "--"})

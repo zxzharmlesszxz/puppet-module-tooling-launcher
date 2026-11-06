@@ -9,8 +9,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/hostflow"
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/templatekit"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/templatekit"
 )
 
 func (a *app) executeTemplate(cfg config, image string, o operationOptions, kind string, native bool) error {
@@ -68,14 +68,14 @@ func privateValidationEnvironment() map[string]string {
 	r := map[string]string{}
 	for _, entry := range os.Environ() {
 		key, _, _ := strings.Cut(entry, "=")
-		if strings.HasPrefix(key, "GIT_") || strings.HasPrefix(key, "TOOLING_TEMPLATE_") || strings.HasPrefix(key, "PMTOOL_TEMPLATE_") || strings.HasPrefix(key, "BUNDLE_") {
+		if strings.HasPrefix(key, "GIT_") || strings.HasPrefix(key, "TOOLING_TEMPLATE_") || strings.HasPrefix(key, "PMTOOL_TEMPLATE_") || strings.HasPrefix(key, "BUNDLE_") || strings.HasPrefix(key, "FORGE_") {
 			r[key] = ""
 		}
 	}
-	for _, key := range []string{"RUBYOPT", "RUBYLIB"} {
+	for _, key := range []string{"RUBYOPT", "RUBYLIB", "FORGE_PUBLISH_TOKEN"} {
 		r[key] = ""
 	}
-	for _, key := range []string{"GITLAB_TOKEN", "GITHUB_TOKEN", "CI_JOB_TOKEN", "TOOLING_TEMPLATE_TOKEN", "TOOLING_TEMPLATE_TOKEN_HOST", "TOOLING_TEMPLATE_USERNAME", "TOOLING_TEMPLATE_REPOSITORY", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"} {
+	for _, key := range []string{"GITLAB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "CI_JOB_TOKEN", "TOOLING_TEMPLATE_TOKEN", "TOOLING_TEMPLATE_TOKEN_HOST", "TOOLING_TEMPLATE_USERNAME", "TOOLING_TEMPLATE_REPOSITORY", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"} {
 		r[key] = ""
 	}
 	return r

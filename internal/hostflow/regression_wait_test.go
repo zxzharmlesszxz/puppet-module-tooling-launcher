@@ -18,8 +18,8 @@ func publicationFixture(t *testing.T) (*Engine, *fakeHosting, string, string, st
 	return e, api, remote, command(t, e.Project.Root, "rev-parse", "HEAD"), command(t, e.Project.Root, "rev-parse", "v1.0.0")
 }
 func TestMigratedPublicationStateMachine(t *testing.T) {
-	statuses := strings.Fields("created waiting_for_resource preparing pending running scheduled success failed canceled skipped manual unknown missing wrong_sha wrong_ref wrong_id disappeared changed_tag changed_local_tag api_error interrupted missing_job failed_job paginated duplicate_job")
-	for _, status := range statuses {
+	statuses := strings.FieldsSeq("created waiting_for_resource preparing pending running scheduled success failed canceled skipped manual unknown missing wrong_sha wrong_ref wrong_id disappeared changed_tag changed_local_tag api_error interrupted missing_job failed_job paginated duplicate_job")
+	for status := range statuses {
 		t.Run(status, func(t *testing.T) {
 			e, api, remote, head, object := publicationFixture(t)
 			sleeps, lists, details := 0, 0, 0
@@ -200,7 +200,7 @@ func TestMigratedMainWaitRejectsChangesAndLateUnrelatedCI(t *testing.T) {
 }
 func TestMigratedMergeWaitMatrixBothCommands(t *testing.T) {
 	for _, cmd := range []string{"mr", "mr-merge"} {
-		for _, status := range strings.Fields("success failed canceled skipped manual missing changed api_error interrupted") {
+		for status := range strings.FieldsSeq("success failed canceled skipped manual missing changed api_error interrupted") {
 			t.Run(cmd+"/"+status, func(t *testing.T) {
 				e, api, _, remote := fixture(t)
 				command(t, e.Project.Root, "switch", "-c", "release/1.0.1")

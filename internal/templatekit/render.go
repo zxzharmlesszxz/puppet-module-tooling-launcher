@@ -47,14 +47,16 @@ func profileSource() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var lines []string
-	for _, line := range strings.SplitAfter(string(profile), "\n") {
-		if strings.HasPrefix(line, "require_relative 'tooling_group_selection'") || strings.HasPrefix(line, "# frozen_string_literal:") {
-			continue
+	helperBody := strings.TrimSpace(strings.TrimPrefix(string(helper), "# frozen_string_literal: true\n"))
+	lines := strings.Split(helperBody, "\n")
+	for index, line := range lines {
+		if line != "" {
+			lines[index] = "  " + line
 		}
-		lines = append(lines, line)
 	}
-	return string(helper) + "\n" + strings.Join(lines, ""), nil
+	body := strings.Replace(string(profile), "require_relative 'tooling_group_selection'\n\n", "", 1)
+	body = strings.Replace(body, "class ToolingContractProfile\n", "class ToolingContractProfile\n"+strings.Join(lines, "\n")+"\n\n", 1)
+	return strings.TrimSpace(body) + "\n", nil
 }
 func (t *Template) document(source []byte, config, metadata Mapping) (Document, error) {
 	profile, err := profileSource()

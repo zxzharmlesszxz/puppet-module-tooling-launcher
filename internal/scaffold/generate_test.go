@@ -39,7 +39,7 @@ func TestGitHubStarterPersistsExecutablePathAcrossSteps(t *testing.T) {
 }
 
 func starterOptions() Options {
-	return Options{Name: "team_template", Provider: "both", Version: "v1.1.0", PDK: "pdk:fixture", VoxBox: "voxbox:fixture"}
+	return Options{Name: "team_template", Provider: "both", Version: "v2.0.0", VoxBox: "voxbox:fixture"}
 }
 
 func TestStarterProvidersSchemasAndVerifiedCI(t *testing.T) {
@@ -79,7 +79,7 @@ func TestStarterProvidersSchemasAndVerifiedCI(t *testing.T) {
 				if err := yaml.Unmarshal(body, &doc); err != nil {
 					t.Fatalf("%s: %v", path, err)
 				}
-				if !strings.Contains(string(body), "Digest::SHA256") || !strings.Contains(string(body), "v1.1.0") || strings.Contains(string(body), "curl ") || strings.Contains(string(body), "docker.sock") || strings.Contains(string(body), "forge-publish") {
+				if !strings.Contains(string(body), "Digest::SHA256") || !strings.Contains(string(body), "v2.0.0") || strings.Contains(string(body), "curl ") || strings.Contains(string(body), "docker.sock") || strings.Contains(string(body), "forge-publish") || strings.Contains(string(body), "puppet/pdk") || strings.Contains(string(body), "pdk --stage") {
 					t.Fatalf("unsafe/incomplete CI: %s", path)
 				}
 				if strings.HasPrefix(path, ".github/") && doc["on"] == nil {

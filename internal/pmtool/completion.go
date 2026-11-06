@@ -124,7 +124,7 @@ func (a *app) complete(opts options, words []string) int {
 	}
 	if !strings.Contains(current, "=") && len(completionEnum(previous)) == 0 {
 		switch previous {
-		case "--image", "--config", "--docker", "--socket", "--executor", "--stage", "--module", "--output", "--file", "--files", "--ci", "--template", "--ref", "--branch", "--title", "--watch", "--version", "--pdk-image", "--voxbox-image", "--ci-project", "--name", "--launcher-version", "--pipeline", "--job", "--tail":
+		case "--image", "--config", "--docker", "--socket", "--executor", "--stage", "--module", "--output", "--file", "--files", "--ci", "--template", "--ref", "--branch", "--title", "--watch", "--version", "--voxbox-image", "--ci-project", "--name", "--launcher-version", "--origin", "--pipeline", "--job", "--tail":
 			return 0
 		}
 	}
@@ -180,13 +180,13 @@ func (a *app) complete(opts options, words []string) int {
 				candidates = []string{"--section"}
 			}
 		case "template-init":
-			candidates = []string{"--name", "--output", "--provider", "--launcher-version", "--help"}
+			candidates = []string{"--name", "--output", "--provider", "--launcher-version", "--origin", "--help"}
 		case "pipeline-logs":
 			candidates = []string{"--module", "--provider", "--ref", "--pipeline", "--job", "--failed", "--tail", "--output", "--help"}
 		case "version":
 		default:
 			for _, name := range a.completionManifest(opts).Options {
-				if name != "host-module" && completionName.MatchString(name) {
+				if name != "host-module" && name != "origin" && completionName.MatchString(name) {
 					candidates = append(candidates, "--"+name)
 				}
 			}

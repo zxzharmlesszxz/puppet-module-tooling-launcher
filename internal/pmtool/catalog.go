@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/docs"
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/workflow"
+	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/docs"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/workflow"
 )
 
 func launcherManifest() manifest {

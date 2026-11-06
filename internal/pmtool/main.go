@@ -17,8 +17,8 @@ import (
 	"strings"
 	"syscall"
 
-	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/docs"
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/internal/hostflow"
+	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/docs"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
 )
 
 var version = "dev"
@@ -32,9 +32,10 @@ func (f failure) Unwrap() error { return f.error }
 
 func asFailure(caught any) (failure, bool) {
 	err, ok := caught.(error)
-	var expected failure
-	matched := ok && errors.As(err, &expected)
-	return expected, matched
+	if !ok {
+		return failure{}, false
+	}
+	return errors.AsType[failure](err)
 }
 
 func check(err error) {
@@ -142,8 +143,7 @@ func (realDriver) execute(p plan) int {
 	if err == nil {
 		return 0
 	}
-	var exited *exec.ExitError
-	if errors.As(err, &exited) {
+	if exited, ok := errors.AsType[*exec.ExitError](err); ok {
 		if status, ok := exited.Sys().(syscall.WaitStatus); ok && status.Signaled() {
 			return 128 + int(status.Signal())
 		}
@@ -211,10 +211,10 @@ func (a *app) run(args []string) int {
 	flags.StringVar(&opts.config, "config", filepath.Join(a.home, ".config", "puppet-module-tooling", "config.json"), "launcher config")
 	flags.StringVar(&opts.image, "image", "", "image for this invocation")
 	flags.StringVar(&opts.docker, "docker", "", "Docker executable")
-	flags.StringVar(&opts.socket, "socket", "", "socket bind source for commands requiring Docker")
+	flags.StringVar(&opts.socket, "socket", "", "legacy compatibility setting; no socket is mounted")
 	flags.StringVar(&opts.executor, "executor", "docker", "docker or native (CI tool environment)")
 	flags.StringVar(&opts.color, "color", "auto", "auto, always or never")
-	flags.BoolVar(&opts.dryRun, "dry-run", false, "show the Docker plan without running the module command")
+	flags.BoolVar(&opts.dryRun, "dry-run", false, "preview the selected operation without executing its workflow")
 	flags.BoolVar(&opts.help, "help", false, "launcher help")
 	flags.BoolVar(&opts.help, "h", false, "launcher help")
 	flags.BoolVar(&opts.version, "version", false, "launcher version")
@@ -287,6 +287,12 @@ func (a *app) run(args []string) int {
 		aiOutput = a.exportPath(export)
 		ai = &export
 		return a.exportAI(launcherManifest(), *ai, aiOutput, opts.dryRun)
+	}
+	if args[0] == "forge-publish" {
+		if opts.executor == "native" {
+			fail("forge-publish is a host operation; omit --executor native")
+		}
+		return a.publishForge(args, opts.dryRun)
 	}
 	if opts.executor == "native" && args[0] != "config" {
 		if args[0] == "template-test" {

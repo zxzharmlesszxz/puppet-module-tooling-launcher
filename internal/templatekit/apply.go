@@ -172,8 +172,7 @@ func (e *Engine) diff(c Change) (caught error) {
 	}
 	output, err := e.Git("--no-pager", "diff", "--no-index", "--no-ext-diff", "--no-textconv", "--color="+color, "--", filepath.Join(e.Root, c.Path), file.Name())
 	if err != nil {
-		var code *exec.ExitError
-		if !errors.As(err, &code) || code.ExitCode() != 1 {
+		if code, ok := errors.AsType[*exec.ExitError](err); !ok || code.ExitCode() != 1 {
 			return err
 		}
 	}
@@ -226,9 +225,11 @@ func Migrate(root string) error {
 			}
 			_, hasURL := metadata["template-url"]
 			_, hasRef := metadata["template-ref"]
-			if hasURL || hasRef {
+			_, hasVersion := metadata["pdk-version"]
+			if hasURL || hasRef || hasVersion {
 				delete(metadata, "template-url")
 				delete(metadata, "template-ref")
+				delete(metadata, "pdk-version")
 				updated, err = jsonBytes(metadata)
 			}
 		} else {

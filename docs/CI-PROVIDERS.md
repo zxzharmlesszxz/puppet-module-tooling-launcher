@@ -61,9 +61,11 @@ pmtool mr --provider github --module /absolute/module
 ```
 
 GitLab uses `GITLAB_TOKEN`, with optional `GITLAB_BASE_URL` and `GITLAB_USERNAME`.
+GITLAB_BASE_URL is the full HTTP(S) API endpoint ending in /api/v4 on the origin
+host, not just its web root; preserve an HTTP origin's installation path prefix.
 GitHub uses `GITHUB_TOKEN`, with optional `GITHUB_API_URL`. The GitHub API defaults
 to `https://api.github.com` or `https://<enterprise-host>/api/v3`; an override must
-remain on the origin server. SSH ports are never reused as API ports.
+use HTTPS and remain on the origin server (api.github.com for github.com). SSH ports are never reused as API ports.
 
 Module API/Git operations use only the selected provider token. Token values are
 absent from argv, config, hints and dry-run output. Template fetch uses its separate
@@ -99,7 +101,7 @@ referencing it. This does not create repositories, mirrors, tags, protection
 rules or secrets. The generated starter uses Ubuntu runners for GitHub; adapt
 `runs-on` in the published workflow when using self-hosted runners.
 
-The validation starter runs audit, PDK validation/unit and VoxBox validation/specs
+The validation starter runs audit and VoxBox validation/specs
 on branch pushes. It supplies no Forge publication. A production team workflow
 should verify protected metadata-matching tags against current main and successful
 required main jobs for that exact SHA, then perform release checks and publish
@@ -182,7 +184,7 @@ A version tag can move; a full SHA is immutable. Read `docs templates` for the s
 
 Workflow code, audit implementation, command catalog and docs are shipped by pmtool.
 The environment image contains executables/dependencies only. Docker execution
-uses a JSON/ERB worker and template-owned Puppet/RSpec checks; Go starts PDK/VoxBox
+uses a JSON/ERB worker and template-owned Puppet/RSpec checks; Go starts VoxBox
 directly from the host. Settings, planning, checkout, sync and general audit are Go-owned.
 Native CI uses the same plan with preinstalled job tools and no nested Docker.
 The selected team template retains its own contracts/audit policy and CI entrypoints.
@@ -191,10 +193,10 @@ Pin launcher and image versions independently. See [manual](manual.md).
 ## Native CI integration
 
 Use a pinned pmtool binary in each validation job. Verify its SHA256SUMS entry
-before execution. PDK jobs use pmtool --executor native pdk --stage validate|unit;
-VoxBox jobs use the corresponding voxbox command. Audit uses the tool-only SDK
-image; release checks use VoxBox. No Docker daemon/socket or source helper install
-is needed in these jobs. The image must already contain the selected tools.
+before execution. VoxBox jobs use pmtool --executor native voxbox --stage validate|unit. Audit uses the tool-only SDK
+image; release checks use VoxBox. Native module-build uses installed jig; forge-publish runs on the host without
+--executor native. No Docker daemon/socket or source helper install is needed in
+these jobs. The image must already contain the selected tools.
 
 A team template can define its own shared installation include and variables
 such as PMTOOL_VERSION, PMTOOL_RELEASE_BASE and TOOLING_IMAGE. These names are not

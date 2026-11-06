@@ -11,7 +11,7 @@ import (
 )
 
 func TestMigratedEveryValidationFailureStopsLaterStages(t *testing.T) {
-	for stop := range 6 {
+	for stop := range 4 {
 		t.Run(strconv.Itoa(stop+1), func(t *testing.T) {
 			a, d, out := testApp(t)
 			d.results = make([]int, stop+1)
@@ -84,7 +84,7 @@ func TestMigratedCatalogPrivilegesAndAliases(t *testing.T) {
 			}
 		}
 	}
-	for alias, target := range map[string]string{"bootstrap-local": "sync", "bootstrap-local-noop": "sync-noop", "audit-local": "audit", "pdk-local": "pdk", "pdk-convert-local": "pdk-convert", "pdk-convert-local-noop": "pdk-convert-noop"} {
+	for alias, target := range map[string]string{"bootstrap-local": "sync", "bootstrap-local-noop": "sync-noop", "audit-local": "audit"} {
 		if m.Commands[alias] != m.Commands[target] {
 			t.Fatal("alias privileges drifted", alias)
 		}

@@ -11,7 +11,10 @@ pmtool template-init --name team_template --output ./new-template --provider bot
 pmtool template-test --module ./new-template
 ```
 
-Generation is offline and needs no module, Git, image config or Docker. The new
+NAME starts with a lowercase ASCII letter and contains only lowercase ASCII
+letters, digits, underscores or hyphens; module-new names do not allow hyphens.
+Generation is offline and needs no module, image config or Docker. Git is needed
+only when --origin is supplied; omission preserves generation without Git. The new
 directory contains `template.yml`, defaults, a configurable `.editorconfig` ERB,
 `test/run.rb`, `docs/SCHEMA.md`, changelog and selected provider CI. Use gitlab,
 github or both; both is the default. Its parent must exist without symlink
@@ -23,7 +26,7 @@ cleanup or generate into a fresh destination.
 The generated package is a neutral validation starter. It does not pretend to
 provide team contracts, entity spec inventory, 100% Puppet coverage or Forge
 publication. Add and test those policies explicitly. Generated branch CI runs
-audit and PDK/VoxBox validation/unit; template self-tests have their own workflow.
+audit and VoxBox validation/specs; template self-tests have their own workflow.
 There are no duplicate MR/PR jobs, custom runner tags, nested Docker or socket mounts.
 Review runner requirements, private-template credentials and protected release
 policy before adoption. Add actual protected-tag/exact-main checks and a working
@@ -31,11 +34,62 @@ forge-publish job before using the full module release workflow.
 
 CI pins the generating stable launcher and verifies downloaded binaries against
 SHA256SUMS. Development builds require --launcher-version naming a published
-stable release. PDK bootstrap uses its newest bundled Ruby; VoxBox uses PATH Ruby.
+stable release. The generator checks version syntax, not release availability
+or compatibility; choose a published launcher that supports the generated CI.
+Bootstrap uses Ruby from PATH in VoxBox.
 Generated self-tests render and check temporary baseline integrity via pmtool,
 then assert the JSON fixture in Ruby; they never import launcher implementation files. Add behavioral
 regressions as team helpers grow. Validate both provider variants when publishing
 an updated starter. Git initialization, commits, tags and pushes remain explicit.
+
+### Connect and publish the repository
+
+Create an empty repository for the template on GitLab or GitHub, matching the
+chosen CI hosting. Pass its actual URL during generation to initialize an ordinary
+Git repository on an unborn main branch and add origin, without staging, commits,
+tags, network access or pushes:
+
+```sh
+pmtool template-init --name team_template --output ./new-template --provider gitlab --origin https://git.example.com/team/puppet-template.git
+```
+
+--origin is optional and does not change --provider (still both by default). It
+accepts credential-free HTTP(S), SSH URLs and Git's SCP-style addresses; namespace
+and repository are required. Local paths, file URLs, embedded credentials, query,
+fragment, whitespace and traversal are refused before writing files. An SSH URL
+only configures the remote; pmtool template fetching still uses HTTPS. No hosted
+project is created and remote existence/access is not checked.
+
+--dry-run validates the URL and includes Origin in the JSON plan without invoking
+or requiring Git or creating files. Apply checks Git availability before generation.
+Git init/remote add ignore caller Git directory/config overrides and use SHA-1 for
+the current template reference format. If Git setup fails after generation, the
+files and any partial .git are preserved for inspection; do not regenerate over
+that directory. Existing output is never reused or overwritten.
+
+If generation omitted --origin, enter the new package and connect its repository
+manually; replace this example with its actual URL:
+
+```sh
+cd new-template
+git init --initial-branch=main
+git remote add origin https://git.example.com/team/puppet-template.git
+git remote -v
+```
+
+For GitHub, use the template repository's GitHub URL. origin must identify this
+template, not a consuming module or the launcher repository. If Git/origin already
+exists, inspect it rather than repeating initialization or replacing it blindly.
+Creating a project on the server does not configure the generated directory.
+
+Review and test the package, commit the reviewed files, then push main with its
+upstream. Wait for template CI to pass for that commit. Publish an annotated
+version tag such as v1.0.0 from the reviewed commit and wait for any configured tag
+CI. Only then select that published repository/version in module .sync.yml.
+Keep tags and changelog as the version source; do not add a VERSION file.
+Template publication uses explicit Git/hosting operations; the module-facing
+release-prepare/release-tag commands do not publish template repositories.
+Private template/CI access must also be configured for consuming modules.
 
 ## Select a template
 
@@ -83,7 +137,7 @@ username; the default is `oauth2` (GitHub also accepts `x-access-token`).
 The launcher catalog grants `template_token` only to `sync`, `sync-noop`, `audit`
 and `check` (and their compatibility aliases). Template fetch authenticates only the exact configured host/repository.
 A configured token with a mismatching host fails explicitly; it does not silently
-fall back to anonymous access. With no template token, checkout is anonymous. Metadata, `settings`, PDK/VoxBox-only and
+fall back to anonymous access. With no template token, checkout is anonymous. Metadata, `settings`, VoxBox-only and
 module API/release clients do not use template credentials. Permissions and the
 command catalog ship with pmtool; adopting a launcher change does not require
 rebuilding an upstream tools image.
@@ -204,7 +258,10 @@ by the engine from `ci.use`; templates cannot own `.sync.yml`, `.sync.lock.json`
 
 Prepare the bootstrap/release branch before changing `.sync.yml`. Run `sync`;
 `sync-noop` remains optional preview. On a conflict, inspect the shown diff and
-retry with only the reviewed replacement/removal paths in `--files`.
+retry with only the reviewed replacement/removal paths in `--files`. That option
+is one whitespace-separated string, not a shell list; filenames containing spaces
+cannot be approved through it. Do not delete managed files or edit ownership hashes
+to bypass a conflict that needs a supported selection.
 
 Sync writes `.sync.lock.json` with the selected reference, resolved revision and
 SHA256 hashes of generated files. Commit it with module source. It is an owned-file
@@ -262,7 +319,7 @@ versioned repository.
 Workflow code, audit implementation, command catalog and docs are shipped by pmtool.
 The environment image contains executables/dependencies only. Docker execution
 runs the JSON/ERB worker and verified template-owned checks in the tools image;
-Go starts PDK/VoxBox directly from the host.
+Go starts VoxBox directly from the host.
 Native CI uses the same plan with preinstalled job tools and no nested Docker.
 The selected team template retains its own contracts/audit policy and CI entrypoints.
 Pin launcher and image versions independently. See [manual](manual.md).
@@ -297,3 +354,9 @@ they must not import launcher implementation files or assume a toolkit install p
 
 General sync/audit regressions live in Go. Template tests retain their own ERB,
 Puppet/RSpec parser, resource coverage, repository-key and CI behavior checks.
+
+Lint the actual rendered Ruby, including profile initialization and contract
+functions, against the supported module RuboCop styles. A passing engine-asset
+lint does not validate ERB output. Serialize profile configuration as quoted JSON
+data rather than interpolating Ruby `Hash#inspect` into executable source.
+Do not bypass failures by excluding generated helpers or all of `spec/**/*`.

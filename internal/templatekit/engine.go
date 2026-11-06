@@ -146,7 +146,7 @@ func (e *Engine) Plan(sync bool) (Plan, error) {
 		}
 	}
 	approved := map[string]bool{}
-	for _, file := range strings.Fields(e.Files) {
+	for file := range strings.FieldsSeq(e.Files) {
 		if !baseline[file] {
 			if _, known := previous.Files[file]; !known {
 				return p, fmt.Errorf("FILES contains non-baseline paths: %s", file)
@@ -455,7 +455,7 @@ func (e *Engine) metadataChecks(m Mapping, sync bool) []string {
 			if err != nil {
 				problems = append(problems, err.Error())
 			}
-			for _, file := range strings.Split(strings.TrimSpace(files), "\n") {
+			for file := range strings.SplitSeq(strings.TrimSpace(files), "\n") {
 				if file != "" {
 					problems = append(problems, "tracked ignored file: "+file)
 				}
