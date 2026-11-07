@@ -174,6 +174,13 @@ func Extract(data []byte, root string) error {
 	}
 }
 func RunGit(ctx context.Context, root string, c Credentials, args ...string) (output []byte, caught error) {
+	if len(args) > 0 && args[0] == "fetch" {
+		resolved, err := resolveTemplateCredentials(ctx, root, c, nil)
+		if err != nil {
+			return nil, err
+		}
+		c = resolved
+	}
 	base := []string{"-c", "credential.helper=", "-c", "core.askPass=", "-c", "core.hooksPath=/dev/null", "-c", "protocol.file.allow=never", "-c", "http.followRedirects=false", "-c", "credential.useHttpPath=true", "-C", root}
 	environment := cleanEnvironment()
 	var helper string
@@ -196,7 +203,20 @@ func RunGit(ctx context.Context, root string, c Credentials, args ...string) (ou
 		base = append([]string{"-c", "credential.helper=", "-c", "credential.helper=!" + shellQuote(helper)}, base[2:]...)
 		environment = append(environment, "PMTOOL_TEMPLATE_TOKEN="+c.Token, "PMTOOL_TEMPLATE_USERNAME="+c.Username, "PMTOOL_TEMPLATE_REPOSITORY="+c.Repository)
 	}
-	cmd := exec.CommandContext(ctx, "git", append(base, args...)...) // #nosec G204 -- Fixed Git executable, validated ref/repository and separate argv.
+	cmd := gitProcess(ctx, append(base, args...), environment)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	result, err := cmd.Output()
+	if err != nil {
+		if err := stopCanceledGit(ctx, cmd); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("cannot fetch template: %s: %w", c.Redact(strings.TrimSpace(stderr.String())), err)
+	}
+	return result, nil
+}
+func gitProcess(ctx context.Context, args, environment []string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "git", args...) // #nosec G204 -- Fixed Git executable; template URLs/refs are validated and remain separate argv/stdin.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error {
 		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
@@ -207,28 +227,25 @@ func RunGit(ctx context.Context, root string, c Credentials, args ...string) (ou
 	}
 	cmd.WaitDelay = 3 * time.Second
 	cmd.Env = environment
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	result, err := cmd.Output()
-	if err != nil {
-		if ctx.Err() != nil && cmd.Process != nil {
-			if killErr := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); killErr != nil && !errors.Is(killErr, syscall.ESRCH) {
-				return nil, fmt.Errorf("stop canceled template Git process group: %w", killErr)
-			}
+	return cmd
+}
+func stopCanceledGit(ctx context.Context, cmd *exec.Cmd) error {
+	if ctx.Err() != nil && cmd.Process != nil {
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+			return fmt.Errorf("stop canceled template Git process group: %w", err)
 		}
-		return nil, fmt.Errorf("cannot fetch template: %s: %w", c.Redact(strings.TrimSpace(stderr.String())), err)
 	}
-	return result, nil
+	return nil
 }
 func shellQuote(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'" }
 func cleanEnvironment() []string {
 	var result []string
 	for _, v := range os.Environ() {
 		key, _, _ := strings.Cut(v, "=")
-		if strings.HasPrefix(key, "GIT_") || strings.HasPrefix(key, "TOOLING_TEMPLATE_") || strings.HasPrefix(key, "PMTOOL_TEMPLATE_") {
+		if strings.HasPrefix(key, "GIT_") || strings.HasPrefix(key, "TOOLING_TEMPLATE_") || strings.HasPrefix(key, "PMTOOL_TEMPLATE_") || strings.HasPrefix(key, "FORGE_") {
 			continue
 		}
-		if contains([]string{"GITLAB_TOKEN", "GITHUB_TOKEN", "CI_JOB_TOKEN", "SSH_ASKPASS"}, key) {
+		if contains([]string{"GITLAB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "CI_JOB_TOKEN", "SSH_ASKPASS"}, key) {
 			continue
 		}
 		result = append(result, v)
