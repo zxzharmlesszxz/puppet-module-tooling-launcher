@@ -143,6 +143,7 @@ cmd/pmtool/              executable entry point
 internal/pmtool/         CLI, configuration, plans, execution and Go tests
 internal/hostflow/       native Git, hosting API, release guards and regressions
 internal/templatekit/    template fetch/auth, sync, ownership and general audit
+internal/fixturekit/     host-side fixture downloads, verification and staging
 internal/scaffold/       neutral template starter and CI generation
 internal/workflow/       embedded command catalog
 docs/                   embedded manuals, workflow and AI documentation
@@ -156,7 +157,7 @@ Dockerfile.checks        developer Go lint/security tool environment
 
 ```sh
 make format
-make build VERSION=v2.0.0
+make build VERSION=v2.1.0
 ```
 
 Build runs Go format/vet/lint/coverage/race checks, security scans, real ERB
@@ -166,25 +167,25 @@ upstream VoxBox release for OpenVox 8. The separate `pmtool-checks` development
 image supplies Go/lint/security tools and is not the module runtime. The launcher source CI repository variable TOOLING_IMAGE overrides WORKFLOW_IMAGE
 for SDK regression tests. It does not change the compiled default selected by IMAGE.
 
-With VERSION=v2.0.0, `dist/v2.0.0/` contains four `pmtool-v2.0.0-<os>-<arch>` binaries, `LICENSE` and
+With VERSION=v2.1.0, `dist/v2.1.0/` contains four `pmtool-v2.1.0-<os>-<arch>` binaries, `LICENSE` and
 `SHA256SUMS`. `IMAGE` sets the tool image default compiled into the binary.
 
 Source releases use Git and GitHub CLI through Make targets. Start from clean main:
 
 ```sh
-make release-prepare VERSION=v2.0.0
+make release-prepare VERSION=v2.1.0
 ```
 
 After editing code and `## Unreleased` notes:
 
 ```sh
 make check
-make release-submit VERSION=v2.0.0 MESSAGE='Describe the implementation'
-make mr VERSION=v2.0.0
+make release-submit VERSION=v2.1.0 MESSAGE='Describe the implementation'
+make mr VERSION=v2.1.0
 ```
 
 Submission creates the implementation commit, a separate `chore(release): prepare
-v2.0.0` commit that only finalizes the changelog heading, and pushes the branch
+v2.1.0` commit that only finalizes the changelog heading, and pushes the branch
 without tags. `mr` creates/reuses the PR, waits for exact-head push CI, merges that
 SHA, synchronizes main and downloads/verifies its commit CI artifacts.
 There is no VERSION file. Corrective commits on an unmerged release branch keep
@@ -206,7 +207,7 @@ Test the downloaded native binary under `dist/ci/<SHA>/` with your template/modu
 Then publish the reviewed version:
 
 ```sh
-make push-release VERSION=v2.0.0
+make push-release VERSION=v2.1.0
 ```
 
 The artifact gate, local preflight, exact-main checks, immutable annotated tag and
@@ -244,3 +245,14 @@ PDK commands, aliases and image selectors are removed. Review the [upgrade guide
 and publish/update your team's CI template before rolling v2 out to modules.
 The Go module uses the /v2 suffix; binary/repository/download names remain pmtool
 and puppet-module-tooling-launcher. Released v1 tags remain immutable.
+
+
+Private dependency setup: [host-prepared test fixtures](docs/FIXTURES.md).
+
+
+[Commands, required inputs and optional overrides](docs/COMMAND-INPUTS.md).
+
+
+Token requirements: [developer and CI scopes/roles](docs/TOKENS.md), available
+with `pmtool docs tokens`. Use `pmtool help` for short usage, `pmtool docs` for
+the full manual.

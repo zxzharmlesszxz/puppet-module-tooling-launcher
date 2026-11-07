@@ -151,6 +151,7 @@ func uploadForge(ctx context.Context, client *http.Client, endpoint, token strin
 
 func (a *app) publishForge(args []string, dry bool) int {
 	o := a.parseOperation(args)
+	check(a.preflightForge(dry))
 	endpoint := must(forgeEndpoint(a.getenv("FORGE_URL")))
 	path, data, err := forgeArchive(o.Module)
 	check(err)

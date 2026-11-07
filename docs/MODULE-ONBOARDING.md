@@ -15,32 +15,24 @@ Workflow і перевірки належать pmtool; image містить л�
 
 ## Приватні template-репозиторії
 
-Для приватного template задайте окремий read-only repository token у змінній
-`TOOLING_TEMPLATE_TOKEN` через менеджер секретів, а його host — окремо:
+Для приватного template pmtool спочатку використовує явний
+`TOOLING_TEMPLATE_TOKEN` з відповідним `TOOLING_TEMPLATE_TOKEN_HOST`, потім
+збережені credentials Git helper для точного HTTPS URL, а за їх відсутності —
+анонімний HTTPS. Для звичайного `pmtool sync` із налаштованим Git helper змінні
+шаблону не потрібні. `TOOLING_TEMPLATE_USERNAME` — лише опційний username для
+явного token override; типово `oauth2`.
 
-```sh
-export TOOLING_TEMPLATE_TOKEN_HOST='git.example.com'
-pmtool sync
-```
+Lookup виконується на хості, без інтерактивного askpass, з урахуванням глобальної
+конфігурації Git. Він не запускає helper із локальної конфігурації модуля й не
+виконує store/erase. Невідповідний host явного токена — помилка без fallback.
+`GITLAB_TOKEN`/`GITHUB_TOKEN` модуля не використовуються як заміна template token.
+CI може явно передати дозволений `CI_JOB_TOKEN` через template override.
 
-Токен уже має бути в environment. Не записуйте його у `.sync.yml`, `config.json`
-чи аргументи команд. `GITLAB_TOKEN`/`GITHUB_TOKEN` модуля не використовуються як
-заміна. Опційний `TOOLING_TEMPLATE_USERNAME` задає HTTPS/deploy-token username;
-типове значення — `oauth2`.
-
-Launcher catalog permission `template_token` дозволяє передачу лише для `sync`, `sync-noop`,
-`audit`, `check` та їхніх aliases. Git checkout отримує окремий template token лише для точного host/repository.
-Якщо token заданий для іншого host, операція завершується помилкою; без template
-token доступ є анонімним. Settings, документація,
-VoxBox-only та API/release-команди не отримують ці credentials. Для нової
-permission оновлюйте launcher; upstream image не містить command catalog.
-
-Git helper перевіряє HTTPS, точний host і repository path, не зберігає токен та
-забороняє редиректи. Credentials не передаються в environment ERB/audit-скриптів.
-Шаблон залишається довіреним виконуваним кодом. Доступ до CI includes налаштовується
-окремо у GitLab/GitHub; цей токен не вставляється в YAML. Версія шаблону має бути
-опублікована до її вибору. Докладніше: `pmtool docs templates`.
-
+Credentials застосовуються лише до template fetch потрібного repository та не
+передаються в ERB/audit/SDK. Доступ до CI includes налаштовується окремо.
+Повний опис: [private templates](TEMPLATES.md#private-template-repositories).
+Див. також [команди та потрібні входи](COMMAND-INPUTS.md).
+Автоматичний helper поки є в робочій гілці launcher, не в опублікованій 2.0.0.
 
 ## Перед початком роботи з ШІ
 
@@ -572,3 +564,22 @@ module-side profile files are preserved.
 Template tests use `PMTOOL_TEMPLATE_FIXTURE` JSON through `pmtool template-test`.
 They do not import launcher source or require a bundled Ruby workflow engine.
 See [template-test interface](TEMPLATES.md#engine-and-template-test-interface).
+
+
+## Private test fixtures
+
+See [host-prepared test fixtures](FIXTURES.md) for pinned archive dependencies,
+`test_fixtures` in `.sync.yml`, exact-host `FORGE_TOKEN`/`FORGE_TOKEN_HOST`
+authentication, temporary `FIXTURES_YML`, cleanup and the required launcher version.
+Keep credentials out of SDK workers and generated fixture manifests.
+
+
+## Вимоги до токенів і перевірка входів
+
+[Повна матриця токенів розробника та CI](TOKENS.md) доступна через
+`pmtool docs tokens`: scopes, ролі, allowlist для CI_JOB_TOKEN, читання шаблону,
+приватні fixtures та окреме право публікації Forge. Preflight показує назви
+відсутніх обов'язкових параметрів і завершується до виконання дій; опційні
+перевизначення не вимагаються. Серверні права перевіряються самим сервером.
+`pmtool help` — короткий usage, `pmtool docs` — повний посібник;
+`pmtool docs --section list` — його зміст. Усі ці запити локальні, без токенів.

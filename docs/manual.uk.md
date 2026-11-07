@@ -267,7 +267,7 @@ SCP-style URL без credentials/query/fragment, з namespace і repository. SSH
 Перед записом мають успішно завантажитися всі вибрані логи. У файл записується обраний tail; для повного bounded log задайте --tail 0.
 Термінальні керівні послідовності прибираються. Приховуються поточні значення
 GITLAB_TOKEN, GITHUB_TOKEN, GH_TOKEN, CI_JOB_TOKEN, TOOLING_TEMPLATE_TOKEN та
-FORGE_PUBLISH_TOKEN, а також обраний Git credential. Інші секрети перевіряйте вручну.
+FORGE_PUBLISH_TOKEN і FORGE_TOKEN, а також обраний Git credential. Інші секрети перевіряйте вручну.
 GitHub signed URL завантажується через HTTPS без передавання токена та cookies.
 
 При падінні CI у `mr`/`release-tag` автоматично виводяться останні 100 рядків
@@ -356,3 +356,34 @@ Go module/import path має суфікс /v2; executable, назва репоз
 шлях config.json лишаються чинними. Go toolchain — 1.27.3, runtime — закріплений
 VoxBox з OpenVox 8. Це не перехід на OpenVox 9 і не автоматичне оновлення jig.
 Повна [таблиця заміни команд](manual.md#upgrading-to-20).
+
+
+## Приватні тестові залежності
+
+Див. [отримання fixture на хості](FIXTURES.md): `test_fixtures` у `.sync.yml`,
+фіксована версія та SHA256, авторизація `FORGE_TOKEN`/`FORGE_TOKEN_HOST` лише для
+точного хоста. pmtool готує тимчасовий `FIXTURES_YML` перед unit-тестами та
+прибирає завантажені файли після завершення. Токен не передається в SDK.
+Ця можливість потребує нової версії pmtool; опублікована 2.0.0 її ще не має.
+
+
+## Входи команд та авторизація шаблону
+
+[Таблиця входів команд](COMMAND-INPUTS.md) відокремлює обов'язкові параметри від
+автоматичних значень і необов'язкових override. Авторизація шаблону: явний
+`TOOLING_TEMPLATE_TOKEN` з відповідним host → Git credential helper → anonymous.
+За налаштованого Git helper `TOOLING_TEMPLATE_*` не потрібні. У CI лишається
+явне передавання дозволеного job token. Helper читається тільки для template
+fetch на хості; SDK та audit-скрипти credentials не отримують. Можливість
+поки не входить до опублікованої pmtool 2.0.0.
+
+
+## Вимоги до токенів і перевірка входів
+
+[Повна матриця токенів розробника та CI](TOKENS.md) доступна через
+`pmtool docs tokens`: scopes, ролі, allowlist для CI_JOB_TOKEN, читання шаблону,
+приватні fixtures та окреме право публікації Forge. Preflight показує назви
+відсутніх обов'язкових параметрів і завершується до виконання дій; опційні
+перевизначення не вимагаються. Серверні права перевіряються самим сервером.
+`pmtool help` — короткий usage, `pmtool docs` — повний посібник;
+`pmtool docs --section list` — його зміст. Усі ці запити локальні, без токенів.

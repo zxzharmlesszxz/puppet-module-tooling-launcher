@@ -57,7 +57,7 @@ func TestTemplateSuiteFailureAndDryRunDoNotModifySource(t *testing.T) {
 	}
 }
 func TestNativeWorkerActuallyUnsetsCredentialsAndBundlerInjection(t *testing.T) {
-	for _, key := range []string{"GITLAB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "TOOLING_TEMPLATE_TOKEN", "FORGE_PUBLISH_TOKEN", "RUBYOPT", "BUNDLE_GEMFILE"} {
+	for _, key := range []string{"GITLAB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "TOOLING_TEMPLATE_TOKEN", "FORGE_PUBLISH_TOKEN", "FORGE_TOKEN", "RUBYOPT", "BUNDLE_GEMFILE"} {
 		t.Setenv(key, "MUST_NOT_REACH_RUBY")
 	}
 	p := plan{Docker: "ruby", Environment: privateValidationEnvironment()}

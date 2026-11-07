@@ -7,7 +7,9 @@ Go validation plans, process execution, output, AI export and completion.
 internal/hostflow owns Git, REST providers, release operations and their regressions.
 internal/templatekit owns template checkout/authentication, schema and policy loading,
 CI selection, baseline rendering requests, sync, ownership and general audit.
-internal/scaffold owns neutral starter assets and provider-specific CI generation.
+internal/fixturekit owns host-side fixture downloads, archive verification and
+temporary fixture manifests. internal/scaffold owns neutral starter assets and
+provider-specific CI generation.
 internal/workflow contains only the embedded command catalog. docs contains the
 embedded manuals and assistant guidance; test contains Make target regressions.
 
@@ -21,7 +23,7 @@ The launcher contains no second workflow implementation.
 
 Settings and validation sequences are constructed in Go. Git/API commands bypass
 Docker and image configuration. Template checkout runs host Git with version tags or full commit SHAs and
-explicit host/repository-scoped credentials; the resolved SHA is recorded, but
+explicit overrides or stored host Git helper credentials scoped to the selected HTTPS repository; the resolved SHA is recorded, but
 a version tag itself can move; temporary files are removed
 on success and failure. Sync and general audit execute in Go on the selected clone.
 
@@ -65,7 +67,7 @@ Formatting targets recurse through cmd/internal/docs, including internal/scaffol
 make format
 make check
 make full-check
-make build VERSION=v2.0.0
+make build VERSION=v2.1.0
 ```
 
 Go checks include format, vet, golangci-lint, coverage threshold, race tests,
@@ -86,7 +88,7 @@ a sibling environment checkout or a custom runtime image.
 
 Cross-builds copy the preloaded Go modules into a private writable temporary
 cache. Builds stay offline under the invoking UID/GID and preserve the image-owned
-cache. Use `make build VERSION=v2.0.0` to verify a release; plain `make build`
+cache. Use `make build VERSION=v2.1.0` to verify a release; plain `make build`
 intentionally produces `dev` artifacts.
 
 Release regression tests use temporary local bare Git remotes and a fake gh.
@@ -113,22 +115,22 @@ release-prepare → edit → check → release-submit → mr → review CI binar
 ```
 
 ```sh
-make release-prepare VERSION=v2.0.0
+make release-prepare VERSION=v2.1.0
 make check
-make release-submit VERSION=v2.0.0 MESSAGE='Describe the implementation'
-make mr VERSION=v2.0.0
+make release-submit VERSION=v2.1.0 MESSAGE='Describe the implementation'
+make mr VERSION=v2.1.0
 ```
 
 Prepare requires an ordinary committed clone and clean worktree, synchronizes main
 without reset/stash, verifies that the new canonical version exceeds main's latest
 changelog release, rejects existing local/remote branch or tag names, then creates
-`release/2.0.0`. Do not repeat it on an edited release branch. Optional
+`release/2.1.0`. Do not repeat it on an edited release branch. Optional
 `release-prepare-noop` previews from already synchronized clean main.
 
 Put implementation notes under `## Unreleased`. Submit automatically stages the
 reviewed source files, commits with MESSAGE, then creates a separate
-`chore(release): prepare v2.0.0` commit whose only change is finalizing that heading
-to `## Release 2.0.0`. It pushes the branch with tag following disabled. VERSION
+`chore(release): prepare v2.1.0` commit whose only change is finalizing that heading
+to `## Release 2.1.0`. It pushes the branch with tag following disabled. VERSION
 must match the branch. Existing tags are never reused. Same-version corrective
 commits on an unmerged branch are supported; already finalized notes do not create
 empty preparation commits. `release-submit-noop` shows selection/diff without
@@ -138,9 +140,9 @@ release-tag-noop preview their respective operations with the normal guards.
 Individual operations remain available:
 
 ```sh
-make release-commit VERSION=v2.0.0 MESSAGE='Describe the implementation'
-make release-finalize VERSION=v2.0.0
-make release-push VERSION=v2.0.0
+make release-commit VERSION=v2.1.0 MESSAGE='Describe the implementation'
+make release-finalize VERSION=v2.1.0
+make release-push VERSION=v2.1.0
 ```
 
 Failures preserve commits and staging. After push failure, retry release-push or
@@ -165,7 +167,7 @@ Read source CI without manually composing API requests:
 ```sh
 make pipeline-jobs
 make pipeline-jobs REF=main WATCH=5
-make pipeline-logs REF=release/2.0.0 TAIL=100
+make pipeline-logs REF=release/2.1.0 TAIL=100
 make pipeline-logs REF=main RUN_ID=123 JOB=456 FAILED_ONLY=0
 ```
 
@@ -188,7 +190,7 @@ Existing different artifacts are preserved and rejected.
 Only after reviewing those artifacts:
 
 ```sh
-make push-release VERSION=v2.0.0
+make push-release VERSION=v2.1.0
 ```
 
 Publication still requires verified current-main artifacts, local preflight,
@@ -348,7 +350,9 @@ published tag is immutable. Source submissions keep implementation and the
 changelog-only preparation commit separate, with Unreleased notes finalized by
 release-finalize for the selected version.
 
-internal/scaffold owns neutral starter assets, generated provider validation CI
+internal/fixturekit owns host-side fixture downloads, archive verification and
+temporary fixture manifests. internal/scaffold owns neutral starter assets,
+generated provider validation CI
 and exclusive new-directory writes. No deployed team template is embedded.
 Tests check provider selection/schema, conflicts/symlinks/traversal, Git-free
 default generation, Docker/config isolation, real ERB sync/audit and the Ruby fixture
@@ -425,7 +429,7 @@ Source release targets operate on this launcher, not a Puppet module.
 
 ## Deferred review-approval waiting
 
-Required human MR/PR approvals are planned for a later launcher release, not v2.0.0.
+Required human MR/PR approvals are planned for a later launcher release, not v2.1.0.
 Current mr waits for exact-head CI and then asks the provider to merge; an unmet
 approval rule can therefore refuse the merge. Do not claim that approval waiting
 is implemented or bypass provider review rules. The follow-up must cover GitLab
@@ -453,11 +457,27 @@ The go.mod directive matches GO_IMAGE; this is independent of the Ruby/OpenVox S
 
 ## Version 2 source and artifacts
 
-The current preparation branch is release/2.0.0. Keep Unreleased until the separate
+Prepare the 2.1.0 release on release/2.1.0. Keep Unreleased until the separate
 release-finalize preparation commit. The Go module and all internal imports and
 -X linker symbols use github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2.
-The GitHub repository/release download URLs do not gain /v2. make build VERSION=v2.0.0
-produces all four platforms, LICENSE and SHA256SUMS under dist/v2.0.0 and verifies
+The GitHub repository/release download URLs do not gain /v2. make build VERSION=v2.1.0
+produces all four platforms, LICENSE and SHA256SUMS under dist/v2.1.0 and verifies
 the real linked version/default-image behavior through native smoke.
-Build regressions cover both 2.0.0 and v2.0.0, alongside earlier stable/dev syntax.
-Update team template CI only after v2 is published; keep all old tags immutable.
+Build regressions retain 2.0.0/v2.0.0 coverage alongside stable/dev version syntax.
+Publish pmtool v2.1.0 before updating the team template CI pin for host-prepared
+fixtures; publish that template version before releasing consuming modules.
+Keep all published tags immutable.
+
+
+## Token requirements and preflight
+
+See [developer and CI token requirements](TOKENS.md) (`pmtool docs tokens`) for
+scopes, project roles, job-token allowlists, Forge read/publish separation,
+optional template overrides and fail-fast input validation. `pmtool help` is
+short usage; `pmtool docs` opens the full manual without Docker or credentials.
+
+
+Completion tests exercise Bash/Zsh callbacks with a quoted executable path and
+multiple callback arguments. Native macOS smoke checks must also run the built
+binary with the system Bash 3.2; Linux Bash-only success does not cover its array
+slicing behavior. The callback constructs an explicit argument array.

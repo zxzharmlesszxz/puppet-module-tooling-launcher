@@ -225,9 +225,7 @@ func (a *app) executeSequence(cfg config, image string, args []string, native, d
 				a.notice("FAIL", err.Error(), "1;31")
 			}
 		} else {
-			p := a.toolPlan(cfg, step, native)
-			p.Directory = o.Module
-			code = a.driver.execute(p)
+			code = a.executeToolStep(cfg, o, step, native)
 		}
 		if code != 0 {
 			a.notice("FAIL", fmt.Sprintf("%s: %s (exit %d)", o.Command, step.Label, code), "1;31")

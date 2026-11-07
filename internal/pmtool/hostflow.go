@@ -45,6 +45,8 @@ func (a *app) runHost(args []string, dryRun bool) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	engine := must(hostflow.New(ctx, opts, a.getenv, a.stdout))
+	permission := launcherManifest().Commands[opts.Command]
+	check(engine.ValidateInputs(opts, permission.Token, permission.Author))
 	if a.colorEnabled() {
 		engine.Color = "always"
 	}

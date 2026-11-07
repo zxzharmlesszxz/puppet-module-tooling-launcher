@@ -1,5 +1,25 @@
 # Changelog
 
+## Release 2.1.0
+
+**Features**
+
+- Fetch versioned, SHA256-pinned Forge test fixtures on the host before unit tests; verify archive integrity and identity, scope private read tokens to an explicit host, and keep credentials out of SDK workers.
+- Resolve template HTTPS credentials automatically through the host Git credential helper; explicit host-scoped template tokens retain priority.
+- Show short usage through `help` and the full manual through `docs`, with dedicated token, command-input and fixture documentation.
+- Preflight required command arguments and credential pairs before actions or SDK startup, reporting missing input names without secret values.
+
+**Bugfixes**
+
+- Preserve multiword completion callbacks on macOS Bash 3.2 instead of relying on quoted array-slice behavior.
+- Complete only command-supported flags and available documentation topics/sections, with real Bash/Zsh callback regressions.
+- Redact Forge read tokens in pipeline logs alongside provider, template and publish credentials.
+
+**Documentation**
+
+- Specify developer and CI token scopes, roles, Git credential-helper precedence, private fixture configuration and validation-worker isolation.
+- Document CI secret-forwarding limits and the required launcher/template publication order.
+
 ## Release 2.0.0
 
 **Breaking changes for 2.0.0**

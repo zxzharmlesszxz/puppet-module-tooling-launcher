@@ -132,7 +132,7 @@ test/               перевірки Make-таргетів source-релізі
 
 ```sh
 make format
-make build VERSION=v2.0.0
+make build VERSION=v2.1.0
 ```
 
 Build включає Go/Ruby перевірки, security, збірку чотирьох бінарників,
@@ -141,18 +141,18 @@ LICENSE/SHA256SUMS і smoke. Runtime — закріплений upstream VoxBox 
 Source-реліз керується Make-таргетами через Git та GitHub CLI. Із чистого main:
 
 ```sh
-make release-prepare VERSION=v2.0.0
+make release-prepare VERSION=v2.1.0
 ```
 
 Після змін коду й записів під `## Unreleased`:
 
 ```sh
 make check
-make release-submit VERSION=v2.0.0 MESSAGE='Describe the implementation'
-make mr VERSION=v2.0.0
+make release-submit VERSION=v2.1.0 MESSAGE='Describe the implementation'
+make mr VERSION=v2.1.0
 ```
 
-Submit створює комміт коду, окремий `chore(release): prepare v2.0.0` зі зміною
+Submit створює комміт коду, окремий `chore(release): prepare v2.1.0` зі зміною
 лише заголовка changelog і пушить гілку без тегів. `mr` створює або використовує
 наявний PR, чекає CI точного SHA, зливає його, синхронізує main та завантажує і
 перевіряє CI-артефакти. VERSION-файла немає. Виправлення до незмердженого релізу
@@ -172,7 +172,7 @@ FAILED_ONLY=0 включає логи успішних jobs. Перегляд CI
 Після цього публікуємо:
 
 ```sh
-make push-release VERSION=v2.0.0
+make push-release VERSION=v2.1.0
 ```
 
 Перевірки артефактів, preflight, точного main, незмінного анотованого тега та
@@ -205,3 +205,14 @@ Go-коду й вихідних файлів залишаються обов’�
 та оновлений командний шаблон CI; потім переходьте до sync/check модулів.
 Go module/imports використовують /v2; ім’я бінарника pmtool і release URL незмінні.
 Деталі — [перехід на 2.0](docs/manual.uk.md#перехід-на-20).
+
+
+Приватні залежності: [отримання test fixtures на хості](docs/FIXTURES.md).
+
+
+[Команди, обов’язкові входи та опційні перевизначення](docs/COMMAND-INPUTS.md).
+
+
+Вимоги до токенів: [scopes і ролі для розробника та CI](docs/TOKENS.md), також
+доступні через `pmtool docs tokens`. `pmtool help` — короткий usage, `pmtool docs` —
+повний посібник.

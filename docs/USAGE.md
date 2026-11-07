@@ -1,13 +1,16 @@
 # Module workflow commands
 
 The pmtool binary owns this command set, its permissions and orchestration.
-The environment image contains tools/dependencies only. All documentation is local:
+The environment image contains tools/dependencies only. All documentation is local. `pmtool help` is short usage; `pmtool docs` is the
+complete launcher manual (also `pmtool docs launcher`):
 
 ```sh
 pmtool docs launcher
 pmtool docs onboarding --section list
 pmtool manifest
 ```
+
+See [required command inputs and optional overrides](COMMAND-INPUTS.md).
 
 ## Command index
 
@@ -151,3 +154,19 @@ for archive validation, credentials and CI boundaries.
 A team template may reject missing OS/release facts, pending/empty suites and
 resource coverage below 100%; these gates belong to its selected policy. Fact availability is
 not proof of scenario coverage. See [OS matrix completeness](manual.md#os-matrix-completeness).
+
+
+## Private test fixtures
+
+See [host-prepared test fixtures](FIXTURES.md) for pinned archive dependencies,
+`test_fixtures` in `.sync.yml`, exact-host `FORGE_TOKEN`/`FORGE_TOKEN_HOST`
+authentication, temporary `FIXTURES_YML`, cleanup and the required launcher version.
+Keep credentials out of SDK workers and generated fixture manifests.
+
+
+## Token requirements and preflight
+
+See [developer and CI token requirements](TOKENS.md) (`pmtool docs tokens`) for
+scopes, project roles, job-token allowlists, Forge read/publish separation,
+optional template overrides and fail-fast input validation. `pmtool help` is
+short usage; `pmtool docs` opens the full manual without Docker or credentials.

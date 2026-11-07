@@ -5,10 +5,16 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
 )
 
 const bashCompletion = `_pmtool() {
   local cur="${COMP_WORDS[COMP_CWORD]}" prev="${COMP_WORDS[COMP_CWORD-1]}" choices
+  local index
+  local -a args
+  args=()
+  for ((index=1; index<=COMP_CWORD; index++)); do args+=("${COMP_WORDS[index]}"); done
   local IFS=$'\n'
   case "$prev" in
     --config|--module|--output|--file|--docker|--socket)
@@ -16,7 +22,7 @@ const bashCompletion = `_pmtool() {
       return
       ;;
   esac
-  choices="$("${COMP_WORDS[0]}" __complete "${COMP_WORDS[@]:1:COMP_CWORD}" 2>/dev/null)" || return
+  choices="$("${COMP_WORDS[0]}" __complete "${args[@]}" 2>/dev/null)" || return
   COMPREPLY=( $(compgen -W "$choices" -- "$cur") )
 }
 complete -F _pmtool pmtool
@@ -129,7 +135,22 @@ func (a *app) complete(opts options, words []string) int {
 		}
 	}
 	var candidates []string
-	if key, prefix, equal := strings.Cut(current, "="); equal && strings.HasPrefix(key, "--") {
+	if command == "docs" && previous == "--section" {
+		text := manual
+		if len(rest) > 0 && !strings.HasPrefix(rest[0], "--") {
+			if _, ok := documentationTopics[rest[0]]; ok {
+				text = a.workflowDocument(rest[0])
+			} else if rest[0] != "launcher" {
+				return 0
+			}
+		}
+		candidates = []string{"list"}
+		for heading := range strings.SplitSeq(a.document(text, "list"), "\n") {
+			if title := strings.TrimSpace(heading); title != "" {
+				candidates = append(candidates, title)
+			}
+		}
+	} else if key, prefix, equal := strings.Cut(current, "="); equal && strings.HasPrefix(key, "--") {
 		values := completionEnum(key)
 		if key == "--provider" && command == "template-init" {
 			values = append(values, "both")
@@ -175,22 +196,18 @@ func (a *app) complete(opts options, words []string) int {
 			}
 		case "docs":
 			if len(rest) == 0 {
-				candidates = []string{"launcher", "usage", "onboarding", "ai", "ci", "templates"}
+				candidates = []string{"launcher", "--section"}
+				for topic := range documentationTopics {
+					candidates = append(candidates, topic)
+				}
 			} else {
 				candidates = []string{"--section"}
 			}
 		case "template-init":
 			candidates = []string{"--name", "--output", "--provider", "--launcher-version", "--origin", "--help"}
-		case "pipeline-logs":
-			candidates = []string{"--module", "--provider", "--ref", "--pipeline", "--job", "--failed", "--tail", "--output", "--help"}
 		case "version":
 		default:
-			for _, name := range a.completionManifest(opts).Options {
-				if name != "host-module" && name != "origin" && completionName.MatchString(name) {
-					candidates = append(candidates, "--"+name)
-				}
-			}
-			candidates = append(candidates, "--help")
+			candidates = a.commandCompletionFlags(opts, command)
 		}
 	}
 	sort.Strings(candidates)
@@ -202,4 +219,40 @@ func (a *app) complete(opts options, words []string) int {
 		last = value
 	}
 	return 0
+}
+
+func (a *app) commandCompletionFlags(opts options, command string) []string {
+	candidates := []string{"--help"}
+	if hostflow.IsCommand(command) {
+		for _, name := range a.completionManifest(opts).Options {
+			if hostflow.AllowsOption(command, "--"+name) {
+				candidates = append(candidates, "--"+name)
+			}
+		}
+		return candidates
+	}
+	aliases := map[string]string{"bootstrap-local": "sync", "bootstrap-local-noop": "sync-noop", "audit-local": "audit"}
+	if actual, ok := aliases[command]; ok {
+		command = actual
+	}
+	flags := "module"
+	switch command {
+	case "sync", "sync-noop":
+		flags += " files ci provider template ci-project voxbox-image"
+	case "audit", "check":
+		flags += " ci provider template ci-project voxbox-image"
+	case "voxbox":
+		flags += " stage voxbox-image"
+	case "module-new":
+		flags += " name voxbox-image"
+	case "module-build", "module-convert", "module-convert-noop", "release-checks":
+		flags += " voxbox-image"
+	case "template-test", "forge-publish":
+	default:
+		return candidates
+	}
+	for name := range strings.FieldsSeq(flags) {
+		candidates = append(candidates, "--"+name)
+	}
+	return candidates
 }
