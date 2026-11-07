@@ -230,3 +230,11 @@ Those optional template secrets are not populated automatically: private templat
 audit needs explicit credential provisioning in the selected CI environment.
 Do not assume setting repository secrets alone forwards them through this caller. Add protected tag/exact-main checks and an actual
 forge-publish implementation before adopting full release-tag publication.
+
+
+## Token requirements and preflight
+
+See [developer and CI token requirements](TOKENS.md) (`pmtool docs tokens`) for
+scopes, project roles, job-token allowlists, Forge read/publish separation,
+optional template overrides and fail-fast input validation. `pmtool help` is
+short usage; `pmtool docs` opens the full manual without Docker or credentials.

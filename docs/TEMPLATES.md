@@ -118,38 +118,53 @@ versions. A repository reference is not a sandbox for untrusted template code.
 
 ## Private template repositories
 
-Public templates use anonymous HTTPS. For a private template, load a separate
-read-only repository token from your secret manager into `TOOLING_TEMPLATE_TOKEN`
-and export its bare hostname as `TOOLING_TEMPLATE_TOKEN_HOST`:
+Template authentication is resolved automatically in this order:
+
+1. Explicit `TOOLING_TEMPLATE_TOKEN`, scoped by `TOOLING_TEMPLATE_TOKEN_HOST`.
+2. The host's configured Git credential helper for the selected HTTPS repository.
+3. Anonymous HTTPS when the helper has no saved credentials.
+
+With ordinary saved Git credentials, run `pmtool sync`; no template environment
+variables are required. The lookup uses `git credential fill` with the exact
+canonical repository URL and respects the user's global/system helper settings,
+including `GIT_CONFIG_GLOBAL`. Host-wide credentials are accepted when Git is
+configured that way, but pmtool binds their use to this one repository. Lookup
+runs in the fresh temporary checkout, not the module's local Git configuration.
+Git tracing, askpass programs, terminal prompting and common credential-manager
+interactive prompts are disabled; lookup is bounded to 15 seconds. Configured
+credential helpers are trusted host programs, not SDK code.
+
+For an explicit override, put a read-only repository token in
+`TOOLING_TEMPLATE_TOKEN` and its bare host in `TOOLING_TEMPLATE_TOKEN_HOST`.
+Optional `TOOLING_TEMPLATE_USERNAME` selects the HTTPS/deploy-token username;
+its default with an explicit token is `oauth2`.
 
 ```sh
 export TOOLING_TEMPLATE_TOKEN_HOST='git.example.com'
 pmtool sync
 ```
 
-The token must already be present in the environment. Never put its value in
-`.sync.yml`, `config.json`, command arguments or documentation. It needs read
-access to the selected template repository. Module `GITLAB_TOKEN`/`GITHUB_TOKEN`
-are independent and are never used as fallback template credentials. Optional
-`TOOLING_TEMPLATE_USERNAME` selects an HTTPS username, for example a deploy-token
-username; the default is `oauth2` (GitHub also accepts `x-access-token`).
+The override token must already be in the environment. Never put its value in
+`.sync.yml`, `config.json`, arguments or documentation. A configured token with
+a mismatching host fails before helper lookup; it does not silently fall back.
+Module `GITLAB_TOKEN`/`GITHUB_TOKEN` values are not reused as template credentials.
+The team's GitLab CI setup may explicitly map its permitted `CI_JOB_TOKEN` into
+the template override variables; provider-side access still needs authorization.
 
-The launcher catalog grants `template_token` only to `sync`, `sync-noop`, `audit`
-and `check` (and their compatibility aliases). Template fetch authenticates only the exact configured host/repository.
-A configured token with a mismatching host fails explicitly; it does not silently
-fall back to anonymous access. With no template token, checkout is anonymous. Metadata, `settings`, VoxBox-only and
-module API/release clients do not use template credentials. Permissions and the
-command catalog ship with pmtool; adopting a launcher change does not require
-rebuilding an upstream tools image.
+The catalog grants `template_token` only to `sync`, `sync-noop`, `audit`, `check`
+and their aliases. Metadata, settings, docs, template-init/test, VoxBox-only and
+module API/release operations do not invoke template credential lookup.
 
-The Git helper answers only `get` requests for HTTPS and the exact selected
-host/repository path. It ignores `store`/`erase`, disables redirects, host credential
-helpers/hooks and Git credential tracing, and does not persist the token. Use the
-canonical repository address if a server redirects it. Template fetching runs
-in host Go/Git, not inside the tools container; configure its scoped credentials
-in the launcher environment. Credentials are removed from the template evaluation environment
-and from audit-script child environments; Git errors redact raw, URL-encoded and
-Basic-auth forms. Templates remain trusted executable code, not a sandbox.
+Host helper lookup performs only `get`, never `approve`/`reject` or `store`/`erase`.
+The subsequent fetch disables host helpers, hooks and redirects and uses pmtool's
+secret-free temporary helper, which answers only HTTPS `get` for the exact selected
+host/repository path. The secret itself stays in memory and a narrowly scoped
+fetch environment, not helper source, argv, Git config or module files. Credentials
+are removed from ERB/audit/SDK environments, and fetch errors redact raw,
+URL-encoded and Basic-auth forms. Templates remain trusted executable code.
+
+Automatic helper lookup is a launcher change under development; published
+pmtool v2.0.0 still requires explicit overrides for private templates.
 
 Fetching the package does not authorize provider-side CI includes. Private GitLab
 project includes and private GitHub reusable workflows still need the provider's
@@ -360,3 +375,19 @@ functions, against the supported module RuboCop styles. A passing engine-asset
 lint does not validate ERB output. Serialize profile configuration as quoted JSON
 data rather than interpolating Ruby `Hash#inspect` into executable source.
 Do not bypass failures by excluding generated helpers or all of `spec/**/*`.
+
+
+## Private test fixtures
+
+See [host-prepared test fixtures](FIXTURES.md) for pinned archive dependencies,
+`test_fixtures` in `.sync.yml`, exact-host `FORGE_TOKEN`/`FORGE_TOKEN_HOST`
+authentication, temporary `FIXTURES_YML`, cleanup and the required launcher version.
+Keep credentials out of SDK workers and generated fixture manifests.
+
+
+## Token requirements and preflight
+
+See [developer and CI token requirements](TOKENS.md) (`pmtool docs tokens`) for
+scopes, project roles, job-token allowlists, Forge read/publish separation,
+optional template overrides and fail-fast input validation. `pmtool help` is
+short usage; `pmtool docs` opens the full manual without Docker or credentials.

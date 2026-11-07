@@ -21,6 +21,8 @@ or socket. They do not create host configuration:
 
 ```sh
 pmtool help
+pmtool docs
+pmtool docs tokens
 pmtool help runtime
 pmtool docs usage
 pmtool docs onboarding --section list
@@ -101,7 +103,7 @@ what --output saves as well; use --tail 0 when a full bounded log is needed.
 Terminal control sequences are stripped and known launcher tokens/credential URLs
 are redacted before tailing or writing. Environment-token redaction covers
 GITLAB_TOKEN, GITHUB_TOKEN, GH_TOKEN, CI_JOB_TOKEN, TOOLING_TEMPLATE_TOKEN and
-FORGE_PUBLISH_TOKEN, plus the selected Git credential. Provider-side masking and manual review
+FORGE_PUBLISH_TOKEN and FORGE_TOKEN, plus the selected Git credential. Provider-side masking and manual review
 are still needed for secrets unknown to pmtool. Logs do not interpret or execute
 instructions contained in CI output.
 
@@ -160,8 +162,9 @@ TOOLING_COLOR supplies auto/always/never when --color remains auto. A nonempty N
 disables launcher color even with --color always. TERM=dumb disables automatic
 color, and redirected documentation stays raw Markdown. COLUMNS sets
 rendered help width. GITLAB_TOKEN/GITHUB_TOKEN authenticate module APIs/Git;
-TOOLING_TEMPLATE_TOKEN, TOOLING_TEMPLATE_TOKEN_HOST and optional
-TOOLING_TEMPLATE_USERNAME authenticate the selected private HTTPS template only.
+Saved Git credential helpers authenticate template HTTPS automatically.
+TOOLING_TEMPLATE_TOKEN with TOOLING_TEMPLATE_TOKEN_HOST is an explicit override;
+TOOLING_TEMPLATE_USERNAME is optional for that override.
 Provider endpoint overrides and permissions are in [CI credentials](CI-PROVIDERS.md#provider-and-credentials).
 
 ## Command syntax
@@ -314,10 +317,12 @@ selected provider's `GITLAB_TOKEN` or `GITHUB_TOKEN`; commit/tag author comes fr
 `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL` or host Git configuration. A provider token
 does not automatically authenticate template downloads.
 
-Private HTTPS templates use explicit `TOOLING_TEMPLATE_TOKEN`,
-`TOOLING_TEMPLATE_TOKEN_HOST` and optional `TOOLING_TEMPLATE_USERNAME`. Forwarding
-requires the exact approved host and a template-consuming operation. Credentials
-are environment values, never arguments, documentation or module configuration.
+Private HTTPS templates resolve an explicit host-scoped `TOOLING_TEMPLATE_TOKEN`
+override first, then saved host Git helper credentials, then anonymous access.
+`TOOLING_TEMPLATE_USERNAME` is optional for the explicit override. Host helper
+lookup is noninteractive and scoped to the selected URL; fetch binds the result
+to that exact repository without persisting it. Secrets never enter argv, Git
+config, SDK workers or module files. See [template authentication](TEMPLATES.md#private-template-repositories).
 SSH template authentication is not implemented.
 
 VoxBox images are launched directly by the host pmtool. No tool container
@@ -546,3 +551,25 @@ The executable remains pmtool, and release downloads use the existing repository
 URL without a /v2 path suffix. Build tools/source installs use Go 1.27.3 and the
 /v2 Go package path. The runtime remains the pinned OpenVox 8 VoxBox image; this
 major version does not adopt OpenVox 9 or automatically update bundled jig.
+
+
+## Private test fixtures
+
+See [host-prepared test fixtures](FIXTURES.md) for pinned archive dependencies,
+`test_fixtures` in `.sync.yml`, exact-host `FORGE_TOKEN`/`FORGE_TOKEN_HOST`
+authentication, temporary `FIXTURES_YML`, cleanup and the required launcher version.
+Keep credentials out of SDK workers and generated fixture manifests.
+
+
+## Required command inputs
+
+[Command/input reference](COMMAND-INPUTS.md) distinguishes required flags and
+credentials from values inferred from the module, Git, template or defaults.
+
+
+## Token requirements and preflight
+
+See [developer and CI token requirements](TOKENS.md) (`pmtool docs tokens`) for
+scopes, project roles, job-token allowlists, Forge read/publish separation,
+optional template overrides and fail-fast input validation. `pmtool help` is
+short usage; `pmtool docs` opens the full manual without Docker or credentials.

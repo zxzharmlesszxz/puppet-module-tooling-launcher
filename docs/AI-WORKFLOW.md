@@ -63,7 +63,8 @@ pmtool status
   socket into the tool environment; pmtool starts VoxBox directly on the host.
 - Provider tokens are environment variables and are passed only to their required
   steps. Never print them, put them in arguments/config/docs or mount host SSH keys.
-  Private templates use separate, explicitly host-scoped credentials.
+  Private templates prefer explicit host-scoped credentials, then saved host Git
+  credential helpers for the exact selected HTTPS URL; provider tokens are not reused.
 - For CI, --executor native runs the same plan using installed job tools, without
   Docker or image lookup. It is explicit and not a filesystem sandbox. It permits
   validation/template tests and module-build. Host Git/API reads and mutations,
@@ -277,7 +278,7 @@ The pinned image bundles jig 2.5.0; upstream 2.5.1 adds conversion backups but i
 not automatically installed. Preserve image digests and distinguish tested bundles
 from newer upstream releases. Keep provider/template/Forge tokens, including
 GH_TOKEN, out of validators. CI log redaction must cover the configured
-FORGE_PUBLISH_TOKEN as well as provider/template/job tokens.
+FORGE_PUBLISH_TOKEN and FORGE_TOKEN as well as provider/template/job tokens.
 OS facts, executable-entity specs, pending/empty checks and 100% resource coverage
 are selected-template policy, not unconditional launcher gates. Preserve every
 gate required by the chosen template; do not bypass missing facts or weaken coverage.
@@ -293,11 +294,57 @@ exact task set in Docker/native plans and split validation CI jobs.
 
 ## Version 2 publication order
 
-Prepare launcher v2.0.0 on release/2.0.0; Go imports and linker paths use /v2.
+Prepare launcher v2.1.0 on release/2.1.0; Go imports and linker paths stay on /v2.
 Keep pmtool as the binary name and the existing repository/release base URLs.
 PDK commands/selectors are removed rather than translated through aliases.
-Publish launcher v2 before updating the team's CI pin and releasing that template.
+Publish launcher v2.1.0 before updating the team's CI pin for host-prepared
+fixtures and releasing that template.
 Only then update module template.use and run sync/check on module work branches.
 Never move published tags or silently rewrite selectors/configs/Forge artifacts.
 Unreleased notes are finalized only by the separate preparation commit, after
-explicit authorization to commit. Current work remains without commits/pushes.
+explicit authorization to commit. Do not commit or push without authorization.
+
+
+## Private test fixtures
+
+See [host-prepared test fixtures](FIXTURES.md) for pinned archive dependencies,
+`test_fixtures` in `.sync.yml`, exact-host `FORGE_TOKEN`/`FORGE_TOKEN_HOST`
+authentication, temporary `FIXTURES_YML`, cleanup and the required launcher version.
+Keep credentials out of SDK workers and generated fixture manifests.
+
+
+## Template credential helper policy
+
+Resolve explicit TOOLING_TEMPLATE_TOKEN with its matching HOST first; a bad
+explicit host must not fall back. Otherwise consult the host Git credential
+helper for the selected HTTPS URL, then remain anonymous if no credential exists.
+Do not require template env variables when ordinary saved Git credentials work.
+Respect user global/system helper settings, disable traces/askpass/interactive
+prompts, bound lookup time/output and validate returned host/protocol/path.
+Accept host-wide stored credentials only for the selected repository's fetch.
+Do not invoke module-local helper configuration, persist/store/erase credentials,
+reuse provider env tokens, or expose credentials to templates/validators/SDK.
+The fetch uses its own exact-repository helper with redirects disabled. Preserve
+regressions for explicit priority, missing/foreign/malformed credentials, no
+prompts, get-only lookup, redaction and SDK isolation. See [command inputs](COMMAND-INPUTS.md).
+
+
+## Token requirements and preflight
+
+See [developer and CI token requirements](TOKENS.md) (`pmtool docs tokens`) for
+scopes, project roles, job-token allowlists, Forge read/publish separation,
+optional template overrides and fail-fast input validation. `pmtool help` is
+short usage; `pmtool docs` opens the full manual without Docker or credentials.
+
+
+## Discovery and command input checks
+
+`pmtool help` (no args/-h/--help) is short usage. `pmtool docs` is the complete
+manual; named docs include tokens, inputs and fixtures. Bash/Zsh completion must
+remain offline and suggest only flags accepted by the chosen command, including
+document topics and section names. Validate known required inputs before mutations
+or SDK startup, list missing names without their values and stop nonzero. Keep
+optional defaults optional. Private fixtures use auth: forge, public ones omit
+auth and never receive the read token. Preflight does not certify remote scope,
+expiry, membership or policy; do not bypass server refusals. See TOKENS.md for the
+separate requirements of developers, template fetch, CI jobs and Forge publication.
