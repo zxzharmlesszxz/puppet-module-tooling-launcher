@@ -25,6 +25,7 @@ var version = "dev"
 var defaultImage = voxboxImage
 
 var manual = documentation.Read("manual.md")
+var shortHelp = documentation.Read("HELP.md")
 
 type failure struct{ error }
 
@@ -237,18 +238,8 @@ func (a *app) run(args []string) int {
 		must(fmt.Fprintf(a.stdout, "pmtool %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH))
 		return 0
 	}
-	if opts.help || len(args) == 0 || (len(args) == 1 && args[0] == "help") || (len(args) >= 2 && args[0] == "docs" && args[1] == "launcher") {
-		section := ""
-		if len(args) >= 2 && args[0] == "docs" {
-			docFlags := flag.NewFlagSet("docs launcher", flag.ContinueOnError)
-			docFlags.SetOutput(io.Discard)
-			docFlags.StringVar(&section, "section", "", "section title or list")
-			check(docFlags.Parse(args[2:]))
-			if docFlags.NArg() != 0 {
-				fail("unexpected documentation arguments")
-			}
-		}
-		must(fmt.Fprint(a.stdout, a.document(manual, section)))
+	if opts.help || len(args) == 0 || (len(args) == 1 && args[0] == "help") {
+		must(fmt.Fprint(a.stdout, a.usage()))
 		return 0
 	}
 	if args[0] == "docs" {
@@ -293,6 +284,9 @@ func (a *app) run(args []string) int {
 			fail("forge-publish is a host operation; omit --executor native")
 		}
 		return a.publishForge(args, opts.dryRun)
+	}
+	if !hostflow.IsCommand(args[0]) && launcherManifest().Commands[args[0]].Module && args[0] != "template-test" {
+		check(a.preflightWorkflow(args, opts.dryRun))
 	}
 	if opts.executor == "native" && args[0] != "config" {
 		if args[0] == "template-test" {

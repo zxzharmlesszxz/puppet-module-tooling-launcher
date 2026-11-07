@@ -472,3 +472,6 @@ func optionAllowed(command, key string) bool {
 	}
 	return false
 }
+
+// AllowsOption exposes the parser's option policy to the local completion engine.
+func AllowsOption(command, key string) bool { return optionAllowed(command, key) }

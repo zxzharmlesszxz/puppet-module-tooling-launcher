@@ -123,3 +123,68 @@ func TestCompletionRespectsConfigAndDoesNotSuggestFlagValuesAsCommands(t *testin
 		t.Fatal("completion interpreted an image value as a command")
 	}
 }
+
+func TestCompletionFiltersFlagsByCommandAndCompletesDocSections(t *testing.T) {
+	for _, row := range []struct{ command, want, forbidden string }{
+		{"release-tag", "--module", "--stage"},
+		{"pipeline-logs", "--tail", "--version"},
+		{"audit", "--template", "--name"},
+		{"module-new", "--name", "--watch"},
+		{"template-test", "--module", "--title"},
+	} {
+		a, d, out := testApp(t)
+		a.run([]string{"__complete", row.command, "--"})
+		if !strings.Contains(out.String(), row.want+"\n") || strings.Contains(out.String(), row.forbidden+"\n") {
+			t.Fatal("invalid command options suggested", row.command, out.String())
+		}
+		if len(d.calls)+len(d.plans)+len(d.queries) != 0 {
+			t.Fatal("flag completion required external tools")
+		}
+	}
+	a, _, out := testApp(t)
+	a.run([]string{"__complete", "docs", "--section", "Resp"})
+	if out.String() != "Responsibilities\n" {
+		t.Fatal("default docs section completion failed", out.String())
+	}
+}
+func TestZshCompletionInvokesQuotedCallback(t *testing.T) {
+	if _, err := exec.LookPath("zsh"); err != nil {
+		t.Skip("zsh is not installed")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "completion.zsh")
+	if err := os.WriteFile(script, []byte(zshCompletion), 0600); err != nil {
+		t.Fatal(err)
+	}
+	binary := filepath.Join(dir, "fake pmtool")
+	body := "#!/bin/sh\n[ \"$1\" = __complete ] && [ \"$2\" = docs ] && [ \"$3\" = to ] || exit 1\nprintf 'tokens\\n'\n"
+	if err := os.WriteFile(binary, []byte(body), 0700); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.CommandContext(t.Context(), "zsh", "-f", "-c", `compdef() { :; }; compadd() { shift; printf '%s\n' "$@"; }; source "$1"; words=("$2" docs to); CURRENT=3; _pmtool`, "completion-test", script, binary)
+	output, err := cmd.CombinedOutput()
+	if err != nil || string(output) != "tokens\n" {
+		t.Fatalf("zsh callback failed with quoted executable path: %v: %s", err, output)
+	}
+}
+
+func TestBashCompletionPreservesMultipleCallbackArguments(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash is not installed")
+	}
+	dir := t.TempDir()
+	script := filepath.Join(dir, "completion.bash")
+	if err := os.WriteFile(script, []byte(bashCompletion), 0600); err != nil {
+		t.Fatal(err)
+	}
+	binary := filepath.Join(dir, "fake pmtool")
+	body := "#!/bin/sh\n[ \"$1\" = __complete ] && [ \"$2\" = docs ] && [ \"$3\" = to ] && [ \"$#\" -eq 3 ] || exit 1\nprintf 'tokens\\n'\n"
+	if err := os.WriteFile(binary, []byte(body), 0700); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.CommandContext(t.Context(), "bash", "-c", `source "$1"; COMP_WORDS=("$2" docs to); COMP_CWORD=2; _pmtool; printf '%s\n' "${COMPREPLY[@]}"`, "completion-test", script, binary)
+	output, err := cmd.CombinedOutput()
+	if err != nil || string(output) != "tokens\n" {
+		t.Fatalf("bash callback lost multiple arguments: %v: %s", err, output)
+	}
+}

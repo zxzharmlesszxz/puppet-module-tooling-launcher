@@ -158,3 +158,13 @@ func (a *app) document(markdown, section string) string {
 	flush()
 	return strings.TrimSpace(strings.Join(result, "\n")) + "\n"
 }
+
+func (a *app) usage() string {
+	lines := strings.Split(strings.TrimSuffix(strings.TrimPrefix(shortHelp, "# "), "\n"), "\n")
+	for i, line := range lines {
+		if i == 0 || strings.HasPrefix(line, "Usage:") || strings.HasSuffix(line, ":") {
+			lines[i] = a.paint(line, "1;33")
+		}
+	}
+	return strings.Join(lines, "\n") + "\n"
+}
