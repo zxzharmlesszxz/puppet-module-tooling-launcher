@@ -72,7 +72,7 @@ func privateValidationEnvironment() map[string]string {
 			r[key] = ""
 		}
 	}
-	for _, key := range []string{"RUBYOPT", "RUBYLIB", "FORGE_PUBLISH_TOKEN"} {
+	for _, key := range []string{"RUBYOPT", "RUBYLIB", "FORGE_PUBLISH_TOKEN", "FORGE_TOKEN"} {
 		r[key] = ""
 	}
 	for _, key := range []string{"GITLAB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "CI_JOB_TOKEN", "TOOLING_TEMPLATE_TOKEN", "TOOLING_TEMPLATE_TOKEN_HOST", "TOOLING_TEMPLATE_USERNAME", "TOOLING_TEMPLATE_REPOSITORY", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"} {

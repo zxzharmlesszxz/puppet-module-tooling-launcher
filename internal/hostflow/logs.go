@@ -28,7 +28,7 @@ func (e *Engine) cleanLog(body []byte) string {
 	}, s)
 	secrets := []string{e.Git.Token}
 	if e.Getenv != nil {
-		for key := range strings.FieldsSeq("GITLAB_TOKEN GITHUB_TOKEN GH_TOKEN CI_JOB_TOKEN TOOLING_TEMPLATE_TOKEN FORGE_PUBLISH_TOKEN") {
+		for key := range strings.FieldsSeq("GITLAB_TOKEN GITHUB_TOKEN GH_TOKEN CI_JOB_TOKEN TOOLING_TEMPLATE_TOKEN FORGE_PUBLISH_TOKEN FORGE_TOKEN") {
 			secrets = append(secrets, e.Getenv(key))
 		}
 	}
