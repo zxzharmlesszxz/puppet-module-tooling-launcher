@@ -47,11 +47,12 @@ func moduleArgument(cwd string, args []string) string {
 	module := cwd
 	for index := 0; index < len(args); index++ {
 		if args[index] == "--module" {
-			if index+1 >= len(args) {
+			if next := index + 1; next < len(args) {
+				module = args[next]
+				index = next
+			} else {
 				fail("--module requires a path")
 			}
-			index++
-			module = args[index]
 		} else if value, ok := strings.CutPrefix(args[index], "--module="); ok {
 			module = value
 		}

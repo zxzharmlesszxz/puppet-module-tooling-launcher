@@ -68,7 +68,7 @@ func TestOpenVoxResolvesForgeFixturesOverAuthenticatedHTTPS(t *testing.T) {
 		}
 		if r.URL.Path == "/v3/releases" {
 			name := r.URL.Query().Get("module")
-			result := []map[string]any{}
+			var result []map[string]any
 			for _, release := range releases[name] {
 				hash := sha256.Sum256(release.archive)
 				version := release.metadata["version"].(string)

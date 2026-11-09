@@ -129,6 +129,7 @@ func TestCompletionFiltersFlagsByCommandAndCompletesDocSections(t *testing.T) {
 		{"release-tag", "--module", "--stage"},
 		{"pipeline-logs", "--tail", "--version"},
 		{"audit", "--template", "--name"},
+		{"doctor", "--voxbox-image", "--watch"},
 		{"module-new", "--name", "--watch"},
 		{"template-test", "--module", "--title"},
 	} {

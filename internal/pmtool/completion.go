@@ -241,6 +241,8 @@ func (a *app) commandCompletionFlags(opts options, command string) []string {
 		flags += " files ci provider template ci-project voxbox-image"
 	case "audit", "check":
 		flags += " ci provider template ci-project voxbox-image"
+	case "doctor":
+		flags += " provider template voxbox-image"
 	case "voxbox":
 		flags += " stage voxbox-image"
 	case "module-new":

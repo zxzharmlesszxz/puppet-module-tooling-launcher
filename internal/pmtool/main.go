@@ -2,6 +2,7 @@ package pmtool
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -74,6 +75,7 @@ type manifest struct {
 }
 
 type plan struct {
+	Context     context.Context   `json:"-"`
 	Docker      string            `json:"docker"`
 	Args        []string          `json:"args"`
 	Environment map[string]string `json:"environment,omitempty"`
@@ -101,7 +103,11 @@ func (realDriver) capture(name string, args []string) ([]byte, error) {
 }
 
 func commandForPlan(p plan) *exec.Cmd {
-	cmd := exec.Command(p.Docker, p.Args...) // #nosec G204 -- Local Docker executable and launcher-owned argv; no shell interpolation.
+	ctx := p.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cmd := exec.CommandContext(ctx, p.Docker, p.Args...) // #nosec G204 -- Local Docker executable and launcher-owned argv; no shell interpolation.
 	cmd.Stdin = os.Stdin
 	cmd.Dir = p.Directory
 	if len(p.Input) != 0 {
@@ -278,6 +284,9 @@ func (a *app) run(args []string) int {
 		aiOutput = a.exportPath(export)
 		ai = &export
 		return a.exportAI(launcherManifest(), *ai, aiOutput, opts.dryRun)
+	}
+	if args[0] == "doctor" {
+		return a.doctor(opts, args[1:])
 	}
 	if args[0] == "forge-publish" {
 		if opts.executor == "native" {
