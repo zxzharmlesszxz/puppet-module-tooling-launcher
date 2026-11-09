@@ -58,17 +58,23 @@ func TestForgePreflightReportsAllMissingNames(t *testing.T) {
 		t.Fatal("preflight contacted a worker")
 	}
 }
-func TestPrivateFixturePreflightRunsBeforeSDK(t *testing.T) {
+func TestAuthenticatedForgePreflightRunsBeforeSDK(t *testing.T) {
 	a, d, _ := testApp(t)
-	body := "test_fixtures:\n  common:\n    source: https://forge.example.test/archive\n    module: team-common\n    version: '1.0.0'\n    auth: forge\n    sha256: '" + strings.Repeat("a", 64) + "'\n"
-	if err := os.WriteFile(filepath.Join(a.cwd, ".sync.yml"), []byte(body), 0600); err != nil {
+	body := "fixtures:\n  forge_modules:\n    common: {repo: team/common, ref: '1.0.0'}\n"
+	if err := os.WriteFile(filepath.Join(a.cwd, ".fixtures.yml"), []byte(body), 0600); err != nil {
 		t.Fatal(err)
+	}
+	a.getenv = func(key string) string {
+		if key == "FORGE_URL" {
+			return "https://forge.example.test"
+		}
+		return ""
 	}
 	expectFailure(t, "FORGE_TOKEN", func() { a.run([]string{"voxbox", "--stage", "unit"}) })
 	if len(d.calls)+len(d.plans)+len(d.queries) != 0 {
-		t.Fatal("missing fixture token started Docker")
+		t.Fatal("missing Forge read token started Docker")
 	}
-	if _, err := os.Stat(filepath.Join(a.cwd, "vendor")); !os.IsNotExist(err) {
-		t.Fatal("preflight downloaded a fixture", err)
+	if _, err := os.Stat(filepath.Join(a.home, ".config")); !os.IsNotExist(err) {
+		t.Fatal("preflight created image configuration", err)
 	}
 }
