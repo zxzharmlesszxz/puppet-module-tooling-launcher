@@ -230,10 +230,10 @@ unrelated changes. In sync, --files approves reviewed baseline replacements/remo
 Use `pmtool manifest` to inspect the workflow catalog. Root flags and local
 interfaces such as config, ai and completion have their own parsing; the manifest
 is not a complete CLI grammar.
-The catalog is metadata, not an authorization boundary. Its read_only field does
-not prove absence of provider mutations: for example, mr-create still creates a
-remote request. The token field describes module-provider authentication, not
-Forge authentication; forge-publish still requires its own environment token. Host command guards and user authorization remain authoritative.
+The catalog describes command effects. The `read_only` flag covers changes to
+checkout files, Git refs and hosting state. Host config initialization is handled
+separately. The `token` field describes provider authentication. `forge-publish`
+uses its separate Forge token. Runtime guards and user authorization still apply.
 `--dry-run` prints planned steps without executing them. In Docker mode it may
 print the Go plan without resolving/pulling an image or fetching templates; it performs no commit,
 push, merge, tag or publication.

@@ -40,8 +40,7 @@ Provider/project come from origin. Module Git/API project names match
 `puppet-<module>` and lifecycle checks matching owner-module metadata.
 The MR commands, main-sync, pipeline reads, status and diff also accept a
 template checkout with a tracked, valid schema-1 `template.yml` and no `metadata.json`.
---image, --config, --docker, --executor, --color and --dry-run precede the command.
-Module template/CI/provider settings
+Global flags precede the command. Module template/CI/provider settings
 come from .sync.yml with CLI precedence. See [manual](manual.md).
 
 Run `pmtool doctor` before troubleshooting `check`. See the

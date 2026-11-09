@@ -10,8 +10,24 @@ import (
 func TestShortHelpAndDefaultFullManualAreLocal(t *testing.T) {
 	for _, args := range [][]string{nil, {"help"}, {"--help"}, {"-h"}} {
 		a, d, out := testApp(t)
-		if a.run(args) != 0 || !strings.Contains(out.String(), "Usage: pmtool") || strings.Count(out.String(), "\n") > 32 || strings.Contains(out.String(), "## Responsibilities") || strings.Contains(out.String(), "# pmtool") {
+		if a.run(args) != 0 || !strings.Contains(out.String(), "Usage:\n  pmtool [global flags]") || strings.Count(out.String(), "\n") > 56 || strings.Contains(out.String(), "## Responsibilities") || strings.Contains(out.String(), "# pmtool") {
 			t.Fatal("help is not concise", args, out.String())
+		}
+		for _, command := range []string{"sync", "audit", "check", "mr-create", "mr-merge", "pmtool docs tokens", "pmtool docs inputs"} {
+			if !strings.Contains(out.String(), "\n  "+command+"  ") {
+				t.Fatal("help command lacks its own row", command, out.String())
+			}
+		}
+		for _, flag := range []string{"--config", "--image", "--docker", "--executor", "--color", "--dry-run", "-h, --help", "--version"} {
+			if !strings.Contains(out.String(), "\n  "+flag+" ") {
+				t.Fatal("help flag lacks its own row", flag, out.String())
+			}
+		}
+		if !strings.HasSuffix(out.String(), "Use \"pmtool docs usage\" for the full command index.\n") {
+			t.Fatal("help footer omitted the command index", out.String())
+		}
+		if !strings.HasPrefix(out.String(), "pmtool "+version+" — ") {
+			t.Fatal("help header omitted the build version", out.String())
 		}
 		if len(d.calls)+len(d.plans)+len(d.queries) != 0 {
 			t.Fatal("help contacted an external tool")

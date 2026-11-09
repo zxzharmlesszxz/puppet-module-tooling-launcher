@@ -82,7 +82,6 @@ CI закріплює стабільну версію генератора; дл
 
 ```sh
 pmtool help
-pmtool doctor
 pmtool docs launcher
 pmtool docs onboarding --section list
 pmtool ai export --format prompt
@@ -92,7 +91,9 @@ pmtool completion zsh
 
 AI export описує встановлену версію launcher. --output PATH створює лише новий
 файл; наявні файли й symlink зберігаються. Скілл автоматично не встановлюється.
-Докладніше: [інструкція](docs/manual.uk.md), [English manual](docs/manual.md).
+Докладніше в [українському посібнику](docs/manual.uk.md) та [English manual](docs/manual.md).
+Для діагностики з папки модуля використовуйте `pmtool doctor`. Перевірки шаблону
+та Forge використовують налаштований доступ на читання.
 
 ## Межі виконання
 

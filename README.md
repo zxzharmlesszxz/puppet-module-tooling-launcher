@@ -56,7 +56,6 @@ These commands work without Docker, an image pull, module access or credentials:
 
 ```sh
 pmtool help
-pmtool doctor
 pmtool docs onboarding --section list
 pmtool docs launcher
 pmtool ai export --format prompt
@@ -68,6 +67,8 @@ AI exports describe the installed launcher version. `--output PATH` exclusively
 creates a new file; existing files and symlinks are preserved. No skill is installed
 automatically. Read the [manual](docs/manual.md), [workflow](docs/USAGE.md),
 [template format](docs/TEMPLATES.md) and [development guide](docs/DEVELOPMENT.md).
+For module diagnostics, use `pmtool doctor` from the checkout. The template and
+Forge checks use the configured read access. See [doctor](docs/manual.md#doctor).
 
 ## Create a template and inspect CI logs
 

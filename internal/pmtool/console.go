@@ -161,6 +161,7 @@ func (a *app) document(markdown, section string) string {
 
 func (a *app) usage() string {
 	lines := strings.Split(strings.TrimSuffix(strings.TrimPrefix(shortHelp, "# "), "\n"), "\n")
+	lines[0] = strings.Replace(lines[0], "pmtool", "pmtool "+version, 1)
 	for i, line := range lines {
 		if i == 0 || strings.HasPrefix(line, "Usage:") || strings.HasSuffix(line, ":") {
 			lines[i] = a.paint(line, "1;33")

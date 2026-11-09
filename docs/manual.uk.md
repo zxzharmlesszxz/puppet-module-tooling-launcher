@@ -99,10 +99,10 @@ audit-local → audit. Aliases виконують лише відповідну 
 bootstrap-commit-noop та release-commit-noop не змінюють index/HEAD;
 release-tag-noop може чекати main CI, але не створює/пушить тег. module-convert-noop передає jig convert --dry-run; --dry-run у Docker workflow може створювати host config.
 
-manifest показує каталог можливостей; read_only не гарантує відсутність remote
-мутацій: mr-create, наприклад, створює MR/PR. Поле token стосується
-module-provider authentication; forge-publish окремо потребує свій environment token. Дозвіл користувача й runtime guards
-потрібні незалежно від цього поля. У Docker executor audit helper має read-only
+manifest показує каталог можливостей. `read_only` описує зміни файлів checkout,
+Git refs і стану на сервері. Конфігурація launcher ініціалізується окремо. Поле
+`token` стосується автентифікації провайдера. `forge-publish` використовує окремий
+токен Forge. Дозвіл користувача й runtime guards потрібні незалежно від каталогу. У Docker executor audit helper має read-only
 module mount, а VoxBox validators — writable mount для звітів, caches та build
 artifacts. Native checks працюють зі звичайними правами користувача CI.
 
@@ -116,7 +116,7 @@ pmtool формує як HTTP(S) URL із provider token. Наявні Git trans
 далі можуть змінити транспорт; це не додає окрему SSH-authentication функцію
 launcher. SSH-ключі не монтуються в tools containers. Template fetch — лише HTTPS.
 Для загальної довідки використовуйте pmtool --help або pmtool docs. Command-local
---help є в host Git/API-команд і template-init; validation/template-test/jig
+--help є в host Git/API-команд, doctor і template-init; validation/template-test/jig
 та forge-publish його не реалізують. template-test приймає лише порожні args або --module PATH окремо.
 
 ## Ідентичність репозиторію в CI
