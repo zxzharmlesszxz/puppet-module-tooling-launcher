@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+**Breaking changes for 3.0.0**
+
+- Remove the separate test_fixtures archive schema and Go downloader/extractor; declare Forge fixtures in standard .fixtures.yml forge_modules.
+- Configure one authenticated Forge/proxy through FORGE_URL and read-only FORGE_TOKEN instead of per-archive sources, SHA256/auth settings and FORGE_TOKEN_HOST. Public dependencies can use the same caching proxy.
+- Move Go module/import/linker paths to github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3; binary, repository, release URLs and host image configuration keep their names.
+
+**Implementation and regressions**
+
+- Use the native Puppet module_repository/forge_authorization settings in a private temporary configuration outside the checkout, never token argv or worker environment values.
+- Add `fixtures.resolve_dependencies: true` to install transitive Forge fixtures through the same proxy using OpenVox and release metadata.
+- Prepare fixtures separately, remove installer credentials, then execute spec:standalone and fixtures:clean. Docker phases share only dependency files.
+- Preserve ordinary fixture names, versions, defaults, Git repositories and tracked YAML, with fail-fast guards for conflicting config/auth flags, invalid credentials and the retired schema.
+- Cover native/Docker plans, required input names, credential removal before specs, failure cleanup and real stock-SDK fixture parsing/native Puppet auth settings.
+- Update English/Ukrainian manuals, token/command tables, template integration and assistant guidance for the standard Forge-proxy flow.
+
 ## Release 2.1.0
 
 **Features**

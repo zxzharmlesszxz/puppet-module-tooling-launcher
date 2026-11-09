@@ -238,3 +238,23 @@ See [developer and CI token requirements](TOKENS.md) (`pmtool docs tokens`) for
 scopes, project roles, job-token allowlists, Forge read/publish separation,
 optional template overrides and fail-fast input validation. `pmtool help` is
 short usage; `pmtool docs` opens the full manual without Docker or credentials.
+
+
+## Authenticated Forge dependencies
+
+Declare Forge fixtures in `.fixtures.yml` under `forge_modules`.
+`fixtures.resolve_dependencies: true` lets OpenVox install transitive dependencies
+from release metadata using the same proxy.
+Configure the unit job with a trusted HTTPS `FORGE_URL` and read-only `FORGE_TOKEN`;
+one proxy may serve private libraries and cached public modules. Neither value
+selects the generic public default; a partial configured pair fails preflight.
+The team workflow may require both for every unit job. Read and publication
+tokens are separate: `FORGE_PUBLISH_TOKEN` belongs only to publication jobs.
+
+pmtool 3 prepares dependencies through the standard installer with a private
+temporary Puppet config, deletes it, then starts specs without read credentials.
+Native preparation runs in the job SDK and is trusted code; this is not a
+filesystem sandbox. See [fixtures](FIXTURES.md) and [token requirements](TOKENS.md).
+The generated GitHub caller still forwards publication fields only; configure
+read secrets explicitly in both caller and reusable workflow when adopting an
+authenticated proxy. Template selection alone does not grant secret access.

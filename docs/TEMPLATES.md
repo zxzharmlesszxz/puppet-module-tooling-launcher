@@ -379,10 +379,11 @@ Do not bypass failures by excluding generated helpers or all of `spec/**/*`.
 
 ## Private test fixtures
 
-See [host-prepared test fixtures](FIXTURES.md) for pinned archive dependencies,
-`test_fixtures` in `.sync.yml`, exact-host `FORGE_TOKEN`/`FORGE_TOKEN_HOST`
-authentication, temporary `FIXTURES_YML`, cleanup and the required launcher version.
-Keep credentials out of SDK workers and generated fixture manifests.
+Declare Forge fixtures in `.fixtures.yml` under `forge_modules`. With
+`fixtures.resolve_dependencies: true`, list the direct fixtures and let OpenVox
+install their dependencies from module metadata. Configure `FORGE_URL` and the
+read-only `FORGE_TOKEN` for the same authenticated proxy. pmtool removes the
+private installer config before running RSpec. See [Forge fixtures](FIXTURES.md).
 
 
 ## Token requirements and preflight

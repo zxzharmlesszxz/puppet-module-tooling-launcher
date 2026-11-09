@@ -546,19 +546,20 @@ at an unpublished template or move old launcher/template/module tags.
 The launcher does not rewrite module selectors, Forge artifacts or host config
 when upgrading. Template contracts and coverage policy remain team-owned.
 
-The Go module is github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2.
+The Go module is github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3.
 The executable remains pmtool, and release downloads use the existing repository
-URL without a /v2 path suffix. Build tools/source installs use Go 1.27.3 and the
-/v2 Go package path. The runtime remains the pinned OpenVox 8 VoxBox image; this
+URL without a Go-major path suffix. Build tools/source installs use Go 1.27.3 and the
+/v3 Go package path for the current major release. The runtime remains the pinned OpenVox 8 VoxBox image; this
 major version does not adopt OpenVox 9 or automatically update bundled jig.
 
 
 ## Private test fixtures
 
-See [host-prepared test fixtures](FIXTURES.md) for pinned archive dependencies,
-`test_fixtures` in `.sync.yml`, exact-host `FORGE_TOKEN`/`FORGE_TOKEN_HOST`
-authentication, temporary `FIXTURES_YML`, cleanup and the required launcher version.
-Keep credentials out of SDK workers and generated fixture manifests.
+Declare Forge fixtures in `.fixtures.yml` under `forge_modules`. With
+`fixtures.resolve_dependencies: true`, list the direct fixtures and let OpenVox
+install their dependencies from module metadata. Configure `FORGE_URL` and the
+read-only `FORGE_TOKEN` for the same authenticated proxy. pmtool removes the
+private installer config before running RSpec. See [Forge fixtures](FIXTURES.md).
 
 
 ## Required command inputs
@@ -573,3 +574,15 @@ See [developer and CI token requirements](TOKENS.md) (`pmtool docs tokens`) for
 scopes, project roles, job-token allowlists, Forge read/publish separation,
 optional template overrides and fail-fast input validation. `pmtool help` is
 short usage; `pmtool docs` opens the full manual without Docker or credentials.
+
+
+## Version 3 fixture migration
+
+Move dependencies from the retired `.sync.yml` archive section to standard
+`.fixtures.yml` forge_modules using repo/ref. Configure FORGE_URL/FORGE_TOKEN for
+authenticated proxy reads, including public upstream modules served by the proxy.
+FORGE_TOKEN_HOST is no longer used. The standard installer reads a private
+Puppet config only during preparation; it is removed before the spec worker.
+The Go module/import/linker paths use /v3; binary/repository/release URLs stay the
+same. Publish the new launcher before updating/versioning team CI and syncing
+consumers. See [Forge fixtures](FIXTURES.md) for the complete lifecycle.

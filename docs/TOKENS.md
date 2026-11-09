@@ -19,7 +19,7 @@ The module provider token is not silently reused for a template or Forge.
 | GitHub module lifecycle            | `GITHUB_TOKEN`                                           | Fine-grained PAT or App token; operation permissions below      |
 | Template HTTPS fetch               | Saved host Git credential helper                         | Read access to the selected template repository                 |
 | Explicit template override         | `TOOLING_TEMPLATE_TOKEN` + `TOOLING_TEMPLATE_TOKEN_HOST` | Repository-read access; host exactly matches the template       |
-| Private test fixture               | `FORGE_TOKEN` + `FORGE_TOKEN_HOST`                       | Forge read role for the owner/space declared by `auth: forge`   |
+| Forge-proxy fixture reads          | `FORGE_URL` + `FORGE_TOKEN`                              | Read permission for declared modules and the configured proxy   |
 | Forge publication                  | `FORGE_URL` + `FORGE_PUBLISH_TOKEN`                      | Forge publish role for the metadata owner/space                 |
 
 For GitLab, a personal `api` scope includes Git-over-HTTP access. Project/group
@@ -126,11 +126,11 @@ or App token for automated lifecycle changes requiring new push CI.
 
 ## Forge reads and publication in CI
 
-| Job purpose               | Variables                          | Required service authorization                               |
-| ------------------------- | ---------------------------------- | ------------------------------------------------------------ |
-| Public dependencies only  | None                               | Public archive access                                        |
-| Private test fixtures     | `FORGE_TOKEN`, `FORGE_TOKEN_HOST`  | Read-only Forge token for the declared fixture owners/spaces |
-| Publish reviewed archives | `FORGE_URL`, `FORGE_PUBLISH_TOKEN` | Forge publish token authorized for the module owner/space    |
+| Job purpose               | Variables                          | Required service authorization                            |
+| ------------------------- | ---------------------------------- | --------------------------------------------------------- |
+| Public dependencies only  | None                               | Public archive access                                     |
+| Forge-proxy fixture reads | `FORGE_URL`, `FORGE_TOKEN`         | Read-only access to declared/private and proxied modules  |
+| Publish reviewed archives | `FORGE_URL`, `FORGE_PUBLISH_TOKEN` | Forge publish token authorized for the module owner/space |
 
 GitLab/GitHub tokens are not Forge tokens. For the team's Forge service, a read
 token cannot publish, while an ordinary publish token cannot replace an existing
@@ -143,21 +143,27 @@ and jobs that need them. Publish credentials belong only to protected release
 jobs. A protected read variable will not appear in unprotected work-branch jobs:
 protect the trusted work branches or provide a separately scoped read credential
 for permitted validation jobs. Do not expose write credentials to fork/untrusted
-pipelines. Configure the read host separately as a non-secret exact hostname.
+pipelines. Configure the trusted HTTPS Forge base URL separately as a non-secret value.
 
-Declare private archive fixtures with `auth: forge` in `.sync.yml`; this makes
-both read variables mandatory before SDK startup. Public fixtures omit `auth`
-and do not receive the configured Forge token. pmtool verifies the pinned archive
-and gives the SDK a temporary fixture manifest/files, never those credentials.
-See [fixture preparation](FIXTURES.md). This feature requires a launcher release
-containing it and a matching CI launcher pin; published 2.0.0 does not implement it.
+Declare Forge fixtures in `.fixtures.yml` under `forge_modules`. With
+`fixtures.resolve_dependencies: true`, transitive downloads use the same token.
+For an authenticated
+proxy, both `FORGE_URL` and `FORGE_TOKEN` are required; a generic setup with neither
+uses the normal public Forge. The same proxy handles private and cached upstream
+modules. Team CI may mandate authenticated reads even for public dependencies.
+The launcher creates a private temporary Puppet config for fixture preparation,
+then removes it before the separate RSpec worker. The prep tool reads the config;
+no token is supplied in command arguments or worker environment values. This is
+not a filesystem sandbox against trusted preparation code or runner administrators.
+See [standard Forge fixtures](FIXTURES.md). This workflow requires pmtool 3.0.0;
+previously published v2 tags retain their old behavior.
 
 ## Early checks and diagnosing refusals
 
 Before actions, pmtool reports missing required argument/env names and exits
 nonzero. Optional overrides and values inferred from origin, Git config, metadata
-or .sync.yml are not made mandatory. Template overrides and private fixture
-credential/host pairs are checked before SDK startup; provider operations check
+or .sync.yml are not made mandatory. Template overrides and configured Forge
+URL/read-token pairs are checked before SDK startup; provider operations check
 the selected provider token and author defaults before mutations. Pure local
 help/docs/completion require no credentials. Generic --dry-run plans do not
 require execution credentials; real *-noop commands can still read remote state
@@ -167,5 +173,8 @@ Preflight cannot prove server-side scopes, expiry, membership, SSO approval or
 protected-ref permissions offline. An HTTP 401 indicates refused authentication;
 403 can indicate role/scope/allowlist/policy restrictions, and private projects
 may hide access failures behind 404. Read the operation's error without printing
-credentials. Never log tokens, store them in Git/module/config files, put them
-in command arguments, or disable TLS/redirect checks to bypass an access refusal.
+credentials. Never log tokens, commit them, store them in persistent module/launcher configs,
+or put them in command arguments. The private mode-0600 temporary Puppet config
+is the preparation-only exception and must be removed before specs. Do not disable
+TLS verification to bypass an access refusal; standard installer transport rules
+and the trusted Forge proxy govern fixture downloads.
