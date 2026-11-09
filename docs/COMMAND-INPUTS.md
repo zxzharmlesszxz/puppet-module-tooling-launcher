@@ -1,6 +1,6 @@
 # Command inputs
 
-This table describes pmtool v3.0.0. All test dependencies use standard
+This table describes pmtool v3.1.0. All test dependencies use standard
 .fixtures.yml; authenticated proxy installation requires the new launcher.
 Run from the module directory; `--module` is an optional directory override.
 SDK operations require the selected Docker environment or an explicit native SDK,
@@ -10,6 +10,7 @@ but do not require image/tool version environment variables for normal use.
 | ---------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `help`, `docs`, `version`, `manifest`, `completion`, `ai`, `config`          | Only requested subcommand/output arguments                        | None                                                                      |
 | `status`, `diff`, `settings`, `migrate`                                      | None inside the module clone                                      | None                                                                      |
+| `doctor`                                                                     | None inside the module clone; template for the template check     | Template Git helper/override; Forge read pair when using a proxy          |
 | `template-init`                                                              | `--name`, `--output`; dev binary also needs `--launcher-version`  | None; `--origin` is optional and creates no hosted project                |
 | `module-new`                                                                 | `--name`                                                          | None                                                                      |
 | `module-convert`, `module-build`, `template-test`, `release-checks`          | Module/template directory; current directory by default           | None                                                                      |
@@ -29,7 +30,7 @@ See [developer and CI token scopes/roles](TOKENS.md) and `pmtool docs tokens`.
 
 The selected provider token means **one** of `GITLAB_TOKEN` or `GITHUB_TOKEN`,
 according to origin/explicit provider. Git helper template authentication does
-not replace provider REST API authentication. API operations need permissions
+not replace provider API authentication. API operations need permissions
 appropriate to the action; a repository-read-only token cannot merge or change
 protection. Ordinary Git author settings come from Git config; GIT_AUTHOR_* and
 GIT_COMMITTER_* are optional overrides, not mandatory setup.

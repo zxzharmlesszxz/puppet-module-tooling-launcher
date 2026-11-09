@@ -118,10 +118,21 @@ The workflow remains:
 release-prepare → sync → edit → check → release-submit → mr → check → release-tag
 ```
 
-GitHub uses the current PR head's push workflow, checks the head again, and submits
-the exact SHA to the merge API with merge-commit semantics. Missing, failed,
-canceled, skipped, neutral or approval-required runs cannot count as success.
-Server branch rules remain authoritative; API errors stop the operation.
+Both providers require successful push CI for the current request head. After
+CI succeeds, `mr` and `mr-merge` wait for required human approval. GitLab uses
+`detailed_merge_status`. GitHub reads the PR's `reviewDecision` over GraphQL
+with the same provider token and waits for required review or changes requested.
+If no review is outstanding, the command proceeds after the CI check. A new
+head restarts both checks. The merge API receives the verified
+head SHA. The provider still enforces all branch protection rules.
+
+Manual CI, a rejected workflow or an API error stops the merge. Ctrl+C stops
+waiting and leaves the request open. Resume with `pmtool mr` on the source
+branch. `mr-create` opens or reuses the request without waiting.
+
+This review wait belongs to module-facing `pmtool mr` and `pmtool mr-merge`.
+The launcher's own source release uses `make mr`, which waits for CI and relies
+on GitHub to enforce required review at merge time.
 
 `release-tag` waits for main CI at the exact SHA, rejects other active runs, pushes
 the annotated tag, and waits for the tag workflow and successful `forge-publish`.

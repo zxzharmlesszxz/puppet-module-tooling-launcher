@@ -67,7 +67,7 @@ Formatting targets recurse through cmd/internal/docs, including internal/scaffol
 make format
 make check
 make full-check
-make build VERSION=v3.0.0
+make build VERSION=v3.1.0
 ```
 
 Go checks include format, vet, golangci-lint, coverage threshold, race tests,
@@ -88,7 +88,7 @@ a sibling environment checkout or a custom runtime image.
 
 Cross-builds copy the preloaded Go modules into a private writable temporary
 cache. Builds stay offline under the invoking UID/GID and preserve the image-owned
-cache. Use `make build VERSION=v3.0.0` to verify a release; plain `make build`
+cache. Use `make build VERSION=v3.1.0` to verify a release; plain `make build`
 intentionally produces `dev` artifacts.
 
 Release regression tests use temporary local bare Git remotes and a fake gh.
@@ -115,10 +115,10 @@ release-prepare → edit → check → release-submit → mr → review CI binar
 ```
 
 ```sh
-make release-prepare VERSION=v3.0.0
+make release-prepare VERSION=v3.1.0
 make check
-make release-submit VERSION=v3.0.0 MESSAGE='Describe the implementation'
-make mr VERSION=v3.0.0
+make release-submit VERSION=v3.1.0 MESSAGE='Describe the implementation'
+make mr VERSION=v3.1.0
 ```
 
 Prepare requires an ordinary committed clone and clean worktree, synchronizes main
@@ -129,8 +129,8 @@ changelog release, rejects existing local/remote branch or tag names, then creat
 
 Put implementation notes under `## Unreleased`. Submit automatically stages the
 reviewed source files, commits with MESSAGE, then creates a separate
-`chore(release): prepare v3.0.0` commit whose only change is finalizing that heading
-to `## Release 3.0.0`. It pushes the branch with tag following disabled. VERSION
+`chore(release): prepare v3.1.0` commit whose only change is finalizing that heading
+to `## Release 3.1.0`. It pushes the branch with tag following disabled. VERSION
 must match the branch. Existing tags are never reused. Same-version corrective
 commits on an unmerged branch are supported; already finalized notes do not create
 empty preparation commits. `release-submit-noop` shows selection/diff without
@@ -140,9 +140,9 @@ release-tag-noop preview their respective operations with the normal guards.
 Individual operations remain available:
 
 ```sh
-make release-commit VERSION=v3.0.0 MESSAGE='Describe the implementation'
-make release-finalize VERSION=v3.0.0
-make release-push VERSION=v3.0.0
+make release-commit VERSION=v3.1.0 MESSAGE='Describe the implementation'
+make release-finalize VERSION=v3.1.0
+make release-push VERSION=v3.1.0
 ```
 
 Failures preserve commits and staging. After push failure, retry release-push or
@@ -167,7 +167,7 @@ Read source CI without manually composing API requests:
 ```sh
 make pipeline-jobs
 make pipeline-jobs REF=main WATCH=5
-make pipeline-logs REF=release/3.0.0 TAIL=100
+make pipeline-logs REF=release/3.1.0 TAIL=100
 make pipeline-logs REF=main RUN_ID=123 JOB=456 FAILED_ONLY=0
 ```
 
@@ -190,7 +190,7 @@ Existing different artifacts are preserved and rejected.
 Only after reviewing those artifacts:
 
 ```sh
-make push-release VERSION=v3.0.0
+make push-release VERSION=v3.1.0
 ```
 
 Publication still requires verified current-main artifacts, local preflight,
@@ -427,14 +427,14 @@ Source release targets operate on this launcher, not a Puppet module.
   reviewed artifact checks, preflight, local tagging and tag push. It never pushes
   main. No build/check target publishes anything.
 
-## Deferred review-approval waiting
+## Review approval and diagnostics
 
-Required human MR/PR approvals are planned for a later launcher release, not v3.0.0.
-Current mr waits for exact-head CI and then asks the provider to merge; an unmet
-approval rule can therefore refuse the merge. Do not claim that approval waiting
-is implemented or bypass provider review rules. The follow-up must cover GitLab
-and GitHub, distinguish human reviews from CI approvals/manual jobs, report the
-request URL while waiting, and recheck source SHA and CI before merging.
+Keep human review checks after exact-head CI and before SHA-pinned merges.
+Test GitLab merge status and GitHub GraphQL decisions, changed heads, manual CI
+and interruption. Test doctor with local HTTP fixtures and fake Docker calls.
+The module CLI implements approval waiting. The source Make `mr` target delegates
+review enforcement to GitHub when it submits the merge.
+Never require live publication or production credentials in these tests.
 
 ## Single module toolchain
 

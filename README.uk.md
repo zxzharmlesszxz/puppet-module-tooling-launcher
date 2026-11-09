@@ -81,6 +81,7 @@ CI закріплює стабільну версію генератора; дл
 
 ```sh
 pmtool help
+pmtool doctor
 pmtool docs launcher
 pmtool docs onboarding --section list
 pmtool ai export --format prompt
@@ -94,8 +95,10 @@ AI export описує встановлену версію launcher. --output PA
 
 ## Межі виконання
 
-Git/API та релізні команди виконуються в Go через хостовий Git і REST API
-provider. Docker, Ruby SDK та image-конфіг для них не потрібні. Завантаження шаблону, sync, загальний audit і планування теж виконуються в Go.
+Git/API та релізні команди виконуються в Go через хостовий Git і API провайдера.
+Статус рев’ю GitHub читається через GraphQL. Ці команди працюють без Docker, Ruby SDK
+та image-конфігу. Завантаження шаблону, sync, загальний audit і планування теж
+виконуються в Go.
 Контейнер виконує лише JSON/ERB worker та Puppet/RSpec-перевірки шаблону.
 Оновлення workflow потребує перевипуску pmtool, а не перебудови image.
 
@@ -132,7 +135,7 @@ test/               перевірки Make-таргетів source-релізі
 
 ```sh
 make format
-make build VERSION=v3.0.0
+make build VERSION=v3.1.0
 ```
 
 Build включає Go/Ruby перевірки, security, збірку чотирьох бінарників,
@@ -141,21 +144,22 @@ LICENSE/SHA256SUMS і smoke. Runtime — закріплений upstream VoxBox 
 Source-реліз керується Make-таргетами через Git та GitHub CLI. Із чистого main:
 
 ```sh
-make release-prepare VERSION=v3.0.0
+make release-prepare VERSION=v3.1.0
 ```
 
 Після змін коду й записів під `## Unreleased`:
 
 ```sh
 make check
-make release-submit VERSION=v3.0.0 MESSAGE='Describe the implementation'
-make mr VERSION=v3.0.0
+make release-submit VERSION=v3.1.0 MESSAGE='Describe the implementation'
+make mr VERSION=v3.1.0
 ```
 
-Submit створює комміт коду, окремий `chore(release): prepare v3.0.0` зі зміною
+Submit створює комміт коду, окремий `chore(release): prepare v3.1.0` зі зміною
 лише заголовка changelog і пушить гілку без тегів. `mr` створює або використовує
 наявний PR, чекає CI точного SHA, зливає його, синхронізує main та завантажує і
-перевіряє CI-артефакти. VERSION-файла немає. Виправлення до незмердженого релізу
+перевіряє CI-артефакти. Якщо GitHub вимагає approval для релізного PR launcher,
+після рев’ю повторіть `make mr`. VERSION-файла немає. Виправлення до незмердженого релізу
 можна додавати з тією самою версією; повторний пуш зберігає наявні комміти.
 
 ```sh
@@ -172,7 +176,7 @@ FAILED_ONLY=0 включає логи успішних jobs. Перегляд CI
 Після цього публікуємо:
 
 ```sh
-make push-release VERSION=v3.0.0
+make push-release VERSION=v3.1.0
 ```
 
 Перевірки артефактів, preflight, точного main, незмінного анотованого тега та

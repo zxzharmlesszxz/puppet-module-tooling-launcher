@@ -30,8 +30,9 @@ release-prepare → sync → edit → check → release-submit → mr → check 
   names containing spaces. Previews leave the index and HEAD unchanged.
 - Branch pushes select one SHA/ref, disable force, mirror and follow-tags, and
   preserve the local commit on failure. Retry `release-push` after fixing the error.
-- MR/PR merge waits for the selected source SHA's push pipeline, rechecks the
-  request head before merging, then synchronizes main. If synchronization fails,
+- MR/PR merge waits for the current source SHA's push pipeline and required
+  human review, then rechecks the request head before merging. A new head
+  restarts both gates. If synchronizing main fails after merging,
   retry `main-sync` and preserve the successful merge.
 - Tagging pins local HEAD, remote main, the annotated tag object and successful CI.
   Unrelated active pipelines block tagging. Expected active main CI can be waited

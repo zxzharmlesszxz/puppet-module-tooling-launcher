@@ -90,7 +90,7 @@ pmtool status
 6. Run check once: audit, VoxBox validation/specs, release checks.
    Fix failed checks; do not repeat complete green suites without a new reason.
 7. After green check use authorized bootstrap-commit, bootstrap-push, then mr.
-   Combined mr waits for exact-head CI, merges and synchronizes local main.
+   Combined mr waits for exact-head CI and required review, then merges and synchronizes local main.
 8. Run check on main, then authorized release-tag for final merged metadata version.
    Verify publication and canary before reviewed cleanup.
 
@@ -105,8 +105,9 @@ release-prepare → sync → edit → check → release-submit → mr → check 
   Previously consumed Git tags count as releases even without Forge publication.
 - release-submit commits then pushes. On push failure preserve the commit and
   retry release-push. Standalone release-commit remains local-only.
-- mr creates/reuses the request, waits for the pinned head's push CI, merges that
-  SHA and runs main-sync. On sync failure preserve the merge and retry main-sync.
+- mr creates/reuses the request, waits for exact-head push CI and required human
+  approval, then merges that SHA and runs main-sync. On sync failure preserve the
+  merge and retry main-sync.
   After combined mr run check directly; separate watchers are unnecessary.
 - release-tag waits for exact-main CI, pushes the annotated tag, then confirms
   exact-tag publication. Missing/failed/canceled/skipped/manual CI, changed refs
@@ -138,6 +139,16 @@ release-prepare → sync → edit → check → release-submit → mr → check 
   Resource coverage does not prove Ruby branch coverage or every configuration.
 - Module README explains module use; launcher commands and CI internals belong
   in pmtool documentation. Document Hiera migration and breaking changes clearly.
+
+Use `pmtool doctor` to diagnose origin, template access, VoxBox or Forge before
+retrying a failing check. Distinguish Forge authorization, missing releases,
+invalid metadata and unavailable archives. Doctor checks exact archives with a
+partial read and reports ranges at the catalog level. It never needs the publish
+token and does not replace check.
+
+For `mr`, leave required approval to the provider and reviewers. A new head
+requires fresh CI and review checks. Manual CI is a CI blocker. Ctrl+C leaves the
+request open. Resume with `pmtool mr`.
 
 ## Launcher or tool-environment changes
 

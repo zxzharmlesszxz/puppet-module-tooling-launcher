@@ -31,6 +31,7 @@ type Branch struct {
 type Request struct {
 	ID                                                               int64
 	State, SHA, Source, Target, Repository, MergeSHA, URL, Reference string
+	DetailedMergeStatus                                              string
 }
 type PipelineQuery struct{ Ref, SHA, Status, Source string }
 
@@ -43,6 +44,7 @@ type Hosting interface {
 	Requests(context.Context, string, string, string) ([]Request, error)
 	Request(context.Context, int64) (Request, error)
 	CreateRequest(context.Context, string, string) (Request, error)
+	Review(context.Context, Request) (ReviewStatus, error)
 	MergeRequest(context.Context, int64, string) (Request, error)
 	Policy(context.Context, bool, bool, io.Writer, PolicyLevels) error
 }
@@ -202,5 +204,5 @@ func (c *Client) request(r record) Request {
 		head, base := object(r, "head"), object(r, "base")
 		return Request{ID: number(r, "number"), State: state, SHA: text(head, "sha"), Source: text(head, "ref"), Target: text(base, "ref"), Repository: text(object(head, "repo"), "full_name"), MergeSHA: text(r, "merge_commit_sha"), URL: text(r, "html_url"), Reference: fmt.Sprintf("%s#%d", c.Project.ID, number(r, "number"))}
 	}
-	return Request{ID: number(r, "iid"), State: text(r, "state"), SHA: text(r, "sha"), Source: text(r, "source_branch"), Target: text(r, "target_branch"), Repository: c.Project.ID, MergeSHA: text(r, "merge_commit_sha"), URL: text(r, "web_url"), Reference: text(object(r, "references"), "full")}
+	return Request{ID: number(r, "iid"), State: text(r, "state"), SHA: text(r, "sha"), Source: text(r, "source_branch"), Target: text(r, "target_branch"), Repository: c.Project.ID, DetailedMergeStatus: text(r, "detailed_merge_status"), MergeSHA: text(r, "merge_commit_sha"), URL: text(r, "web_url"), Reference: text(object(r, "references"), "full")}
 }

@@ -55,6 +55,7 @@ These commands work without Docker, an image pull, module access or credentials:
 
 ```sh
 pmtool help
+pmtool doctor
 pmtool docs onboarding --section list
 pmtool docs launcher
 pmtool ai export --format prompt
@@ -104,15 +105,17 @@ release-prepare → sync → edit → check → release-submit → mr → check 
 ```
 
 `check` stops at the first failed audit/VoxBox/release check. `release-submit`
-commits then pushes; `mr` waits for exact-head CI, merges and synchronizes main;
+commits then pushes; `mr` waits for exact-head CI and required review, merges
+and synchronizes main;
 `release-tag` waits for exact-main CI, pushes the annotated tag and confirms the
 tag publication job. Optional `*-noop` commands remain explicit previews. Cleanup
 requires a separate reviewed `cleanup-noop` / `cleanup`; release tags are preserved.
 
 ## Execution boundaries
 
-Git/API and release commands run directly in Go using host Git and provider REST
-APIs. They require neither Docker nor a Ruby SDK and do not create image config.
+Git/API and release commands run directly in Go using host Git and provider APIs.
+GitHub review decisions use GraphQL. These commands run without Docker, a Ruby SDK
+or launcher image configuration.
 Template checkout, sync, general audit and validation planning also run in Go.
 The pinned tool image runs the JSON/ERB worker and template-owned Puppet/RSpec
 checks. Settings and planning require no Ruby process or helper archive.
@@ -157,7 +160,7 @@ Dockerfile.checks        developer Go lint/security tool environment
 
 ```sh
 make format
-make build VERSION=v3.0.0
+make build VERSION=v3.1.0
 ```
 
 Build runs Go format/vet/lint/coverage/race checks, security scans, real ERB
@@ -167,27 +170,29 @@ upstream VoxBox release for OpenVox 8. The separate `pmtool-checks` development
 image supplies Go/lint/security tools and is not the module runtime. The launcher source CI repository variable TOOLING_IMAGE overrides WORKFLOW_IMAGE
 for SDK regression tests. It does not change the compiled default selected by IMAGE.
 
-With VERSION=v3.0.0, `dist/v3.0.0/` contains four `pmtool-v3.0.0-<os>-<arch>` binaries, `LICENSE` and
+With VERSION=v3.1.0, `dist/v3.1.0/` contains four `pmtool-v3.1.0-<os>-<arch>` binaries, `LICENSE` and
 `SHA256SUMS`. `IMAGE` sets the tool image default compiled into the binary.
 
 Source releases use Git and GitHub CLI through Make targets. Start from clean main:
 
 ```sh
-make release-prepare VERSION=v3.0.0
+make release-prepare VERSION=v3.1.0
 ```
 
 After editing code and `## Unreleased` notes:
 
 ```sh
 make check
-make release-submit VERSION=v3.0.0 MESSAGE='Describe the implementation'
-make mr VERSION=v3.0.0
+make release-submit VERSION=v3.1.0 MESSAGE='Describe the implementation'
+make mr VERSION=v3.1.0
 ```
 
 Submission creates the implementation commit, a separate `chore(release): prepare
-v3.0.0` commit that only finalizes the changelog heading, and pushes the branch
+v3.1.0` commit that only finalizes the changelog heading, and pushes the branch
 without tags. `mr` creates/reuses the PR, waits for exact-head push CI, merges that
-SHA, synchronizes main and downloads/verifies its commit CI artifacts.
+SHA, synchronizes main and downloads/verifies its commit CI artifacts. The source
+Make target submits the merge once CI passes. If GitHub requires an outstanding
+review, obtain it and rerun `make mr`.
 There is no VERSION file. Corrective commits on an unmerged release branch keep
 the same version; retrying a failed push preserves the existing commits.
 
@@ -207,7 +212,7 @@ Test the downloaded native binary under `dist/ci/<SHA>/` with your template/modu
 Then publish the reviewed version:
 
 ```sh
-make push-release VERSION=v3.0.0
+make push-release VERSION=v3.1.0
 ```
 
 The artifact gate, local preflight, exact-main checks, immutable annotated tag and

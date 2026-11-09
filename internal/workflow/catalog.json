@@ -28,6 +28,14 @@
     "origin"
   ],
   "commands": {
+    "doctor": {
+      "module": true,
+      "read_only": true,
+      "socket": false,
+      "token": false,
+      "author": false,
+      "template_token": false
+    },
     "migrate": {
       "module": true,
       "read_only": false,
