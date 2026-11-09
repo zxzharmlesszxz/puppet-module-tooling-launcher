@@ -69,7 +69,7 @@ workflow files. Organization approval, SSO authorization and App installation
 selection may additionally restrict access. Do not request administration rights
 for ordinary edits if another operator owns the policy step.
 
-For module-facing `mr` and `mr-merge`, the same token must also be able to read
+For `mr` and `mr-merge` on modules and templates, the same token must also read
 the PR review decision through GraphQL.
 
 The pmtool variable is named `GITHUB_TOKEN` whether its value is a PAT, App token

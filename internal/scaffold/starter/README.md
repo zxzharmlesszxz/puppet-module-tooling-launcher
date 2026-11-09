@@ -77,8 +77,9 @@ GitHub repository URL. If Git/origin already exists, inspect it instead of
 repeating initialization or replacing a remote blindly. Review and test the files,
 commit them, push main with its upstream and wait for CI on that commit. Then
 publish an annotated version tag and wait for any configured tag CI. These are
-explicit Git/hosting operations; pmtool's module release commands do not publish
-template repositories. Private template and CI access for modules is separate.
+template Git release steps. For subsequent template releases, use `pmtool mr`
+from the pushed source branch to wait for CI and required review, merge, and
+synchronize local main. Private template and CI access for modules is separate.
 
 Publish the reviewed template with an immutable Git tag before selecting it:
 

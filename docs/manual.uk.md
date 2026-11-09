@@ -108,9 +108,10 @@ artifacts. Native checks працюють зі звичайними правам
 
 ## Назва репозиторію та Git transport
 
-Git/API-команди вимагають origin basename `puppet-<module>`; lifecycle перевіряє,
-що metadata owner-module називає той самий модуль. Вибір template не змінює це
-обмеження. SSH/SCP origin приймається для визначення проєкту, але remote Git
+Модульні Git/API-команди вимагають origin basename `puppet-<module>` і відповідну
+metadata. MR-команди, `main-sync`, перегляд CI, `status` і `diff` також працюють
+із checkout шаблону, де відстежується валідний `template.yml` схеми 1 і відсутній
+`metadata.json`. SSH/SCP origin приймається для визначення проєкту, але remote Git
 pmtool формує як HTTP(S) URL із provider token. Наявні Git transport rewrites
 далі можуть змінити транспорт; це не додає окрему SSH-authentication функцію
 launcher. SSH-ключі не монтуються в tools containers. Template fetch — лише HTTPS.
@@ -131,6 +132,14 @@ workflow. Правила `url.*.insteadOf`, зокрема з runner-файла 
 змінних автентифікації. Без credentials Git-завантаження шаблону завершується
 помилкою без інтерактивного запиту, залежності від `/bin/false` чи запуску
 користувацьких askpass-програм.
+
+## MR для шаблону
+
+Із папки шаблону з відстежуваним `template.yml` запусти `pmtool mr` після пушу
+гілки. Команда створить MR або PR у `main`, дочекається CI й потрібного approval,
+змерджить перевірений SHA і синхронізує локальний `main`. `pmtool mr-create`
+лише відкриває запит. У GitLab команда просить прибрати source branch після
+мерджа. Деталі — в [інструкції шаблону](TEMPLATES.md#connect-and-publish-the-repository).
 
 ## Перевірки та реліз модуля
 

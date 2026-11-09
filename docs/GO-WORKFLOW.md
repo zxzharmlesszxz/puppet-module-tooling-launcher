@@ -1,9 +1,10 @@
 # Host Git, API and release workflow
 
-`internal/hostflow` implements module Git and hosting operations in Go. It invokes
+`internal/hostflow` implements guarded Git and hosting operations in Go. It invokes
 host Git with separate arguments and uses the standard HTTP client for GitLab and
-GitHub. Host project resolution currently requires a `puppet-<module>` repository
-name. It constructs HTTP(S) remote URLs with provider credentials even when the
+GitHub. Module origins use `puppet-<module>` names. MR commands, main-sync,
+status, diff and CI reads also recognize a tracked, valid schema-1 `template.yml`
+without `metadata.json`. The launcher constructs HTTP(S) remote URLs even when the
 configured identity is SSH/SCP. Host Git transport rewrites still apply; the
 launcher does not mount or forward SSH keys into tools containers. These operations do not start Docker, probe Ruby or create image settings.
 Read-only settings/provider inference can still invoke host Git for origin.

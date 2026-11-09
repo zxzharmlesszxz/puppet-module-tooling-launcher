@@ -73,7 +73,7 @@ func (e *Engine) openRequest(id int64, branch string) (Request, error) {
 	if err != nil {
 		return r, err
 	}
-	if r.ID != id || r.SHA == "" || r.Source != branch || r.Target != "main" ||
+	if r.ID != id || r.SHA == "" || r.Source != branch || r.Target != "main" || r.ForeignSource ||
 		(r.State != "opened" && r.State != "open") || (r.Repository != "" && r.Repository != e.Project.ID) {
 		return r, fmt.Errorf("merge request source, target, or state changed")
 	}

@@ -244,8 +244,11 @@ The default module is the current clone. `--module /absolute/clone` selects anot
 physical directory. Host Git/API operations require an ordinary `.git` directory;
 linked worktrees are not supported. Repository identity comes from origin, not
 the checkout folder name. Never reuse another project's token or namespace.
-Host Git/API commands currently require the origin repository basename to match
+Module Git/API commands require the origin repository basename to match
 `puppet-<module>` (lowercase letters, digits, underscores or hyphens after the prefix).
+MR commands, main-sync, pipeline reads, status and diff also accept an ordinary
+template checkout with a tracked schema-1 `template.yml` and no `metadata.json`.
+See [the template request flow](TEMPLATES.md#connect-and-publish-the-repository).
 Lifecycle metadata must name the same module after its owner prefix. This naming
 restriction is in the host workflow; template selection does not override it.
 Origins may use HTTP(S), SSH URLs or SCP-style Git syntax. Remote module Git

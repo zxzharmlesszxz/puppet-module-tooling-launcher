@@ -152,7 +152,14 @@ func New(ctx context.Context, o Options, getenv func(string) string, out io.Writ
 	if err != nil {
 		return nil, err
 	}
-	project, err := ResolveProject(o.Module, origin, settings, getenv)
+	template, err := templateRepository(g)
+	if err != nil {
+		return nil, err
+	}
+	if template && !templateHostCommand(o.Command) {
+		return nil, fmt.Errorf("%s is not supported for template repositories", o.Command)
+	}
+	project, err := resolveProject(o.Module, origin, settings, getenv, template)
 	if err != nil {
 		return nil, err
 	}

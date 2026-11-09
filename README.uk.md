@@ -38,8 +38,9 @@ Provider: --provider → ci.provider → визначення з origin.
 Для першого підключення наявного модуля виконайте [bootstrap](docs/MODULE-ONBOARDING.md#3-bootstrap-гілка),
 перш ніж запускати check проти ще не синхронізованого baseline.
 
-Git/API-команди наразі вимагають назву репозиторію `puppet-<module>`; lifecycle
-звіряє назву модуля з metadata. Це чинне обмеження хостового workflow.
+Модульні Git/API-команди вимагають назву репозиторію `puppet-<module>`.
+Lifecycle звіряє назву модуля з metadata. MR-команди також працюють із
+валідним checkout шаблону.
 
 Ідентичність репозиторію визначає єдиний локальний `remote.origin.url`.
 Правила автентифікації runner лишаються конфігурацією Git-транспорту.

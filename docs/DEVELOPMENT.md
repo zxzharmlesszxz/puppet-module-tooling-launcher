@@ -4,7 +4,7 @@
 
 cmd/pmtool is the executable entry point. internal/pmtool contains CLI/configuration,
 Go validation plans, process execution, output, AI export and completion.
-internal/hostflow owns Git, REST providers, release operations and their regressions.
+internal/hostflow owns Git, provider APIs, release operations and their regressions.
 internal/templatekit owns template checkout/authentication, schema and policy loading,
 CI selection, baseline rendering requests, sync, ownership and general audit.
 internal/fixturekit owns standard Forge installer configuration, private credentials and

@@ -152,3 +152,15 @@ func TestMigratedPartialSuccessGuidanceDoesNotReplayEarlierMutation(t *testing.T
 		}
 	}
 }
+
+func TestTemplatePipelineGuidanceStaysInTemplateWorkflow(t *testing.T) {
+	context := GuidanceContext{Template: true, Branch: "main"}
+	_, next := Guidance(Options{Command: "pipeline-jobs", Ref: "main"}, "/template", context, true)
+	if strings.Join(next, " ") != "pmtool template-test --module /template" {
+		t.Fatalf("wrong template main advice: %v", next)
+	}
+	message, next := Guidance(Options{Command: "pipeline-jobs", Ref: "v2.0.4"}, "/template", context, true)
+	if len(next) != 0 || !strings.Contains(message, "template tag CI") {
+		t.Fatalf("wrong template tag advice: %q %v", message, next)
+	}
+}

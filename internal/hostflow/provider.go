@@ -11,6 +11,10 @@ import (
 )
 
 func (c *Client) Pipelines(ctx context.Context, q PipelineQuery) ([]Pipeline, error) {
+	workflow := ".github/workflows/puppet-module.yml"
+	if c.Project.Template {
+		workflow = ".github/workflows/template-test.yml"
+	}
 	query := url.Values{}
 	path, key := c.prefix()+"/pipelines", ""
 	if q.Ref != "" {
@@ -43,7 +47,7 @@ func (c *Client) Pipelines(ctx context.Context, q PipelineQuery) ([]Pipeline, er
 	var result []Pipeline
 	for _, r := range records {
 		p := c.pipeline(r)
-		if c.Project.Provider == "github" && q.Ref != "" && (strings.Split(text(r, "path"), "@")[0] != ".github/workflows/puppet-module.yml" || text(r, "event") != "push") {
+		if c.Project.Provider == "github" && q.Ref != "" && (strings.Split(text(r, "path"), "@")[0] != workflow || text(r, "event") != "push") {
 			continue
 		}
 		if q.Ref != "" && p.Ref != q.Ref || q.SHA != "" && p.SHA != q.SHA || q.Status != "" && p.Status != q.Status {
@@ -127,7 +131,7 @@ func (c *Client) Requests(ctx context.Context, state, source, target string) ([]
 	var result []Request
 	for _, r := range values {
 		p := c.request(r)
-		if target != "" && p.Target != target || source != "" && (p.Source != source || p.Repository != c.Project.ID) || state == "merged" && p.State != "merged" {
+		if target != "" && p.Target != target || source != "" && (p.Source != source || p.Repository != c.Project.ID || p.ForeignSource) || state == "merged" && p.State != "merged" {
 			continue
 		}
 		result = append(result, p)

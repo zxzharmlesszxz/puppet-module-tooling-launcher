@@ -32,6 +32,7 @@ type Request struct {
 	ID                                                               int64
 	State, SHA, Source, Target, Repository, MergeSHA, URL, Reference string
 	DetailedMergeStatus                                              string
+	ForeignSource                                                    bool
 }
 type PipelineQuery struct{ Ref, SHA, Status, Source string }
 
@@ -202,7 +203,12 @@ func (c *Client) request(r record) Request {
 			state = "merged"
 		}
 		head, base := object(r, "head"), object(r, "base")
-		return Request{ID: number(r, "number"), State: state, SHA: text(head, "sha"), Source: text(head, "ref"), Target: text(base, "ref"), Repository: text(object(head, "repo"), "full_name"), MergeSHA: text(r, "merge_commit_sha"), URL: text(r, "html_url"), Reference: fmt.Sprintf("%s#%d", c.Project.ID, number(r, "number"))}
+		repository := text(object(head, "repo"), "full_name")
+		return Request{ID: number(r, "number"), State: state, SHA: text(head, "sha"), Source: text(head, "ref"), Target: text(base, "ref"), Repository: repository, ForeignSource: repository != c.Project.ID, MergeSHA: text(r, "merge_commit_sha"), URL: text(r, "html_url"), Reference: fmt.Sprintf("%s#%d", c.Project.ID, number(r, "number"))}
 	}
-	return Request{ID: number(r, "iid"), State: text(r, "state"), SHA: text(r, "sha"), Source: text(r, "source_branch"), Target: text(r, "target_branch"), Repository: c.Project.ID, DetailedMergeStatus: text(r, "detailed_merge_status"), MergeSHA: text(r, "merge_commit_sha"), URL: text(r, "web_url"), Reference: text(object(r, "references"), "full")}
+	_, hasSource := r["source_project_id"]
+	_, hasTarget := r["target_project_id"]
+	source, target := number(r, "source_project_id"), number(r, "target_project_id")
+	foreign := (hasSource || hasTarget) && (source <= 0 || source != target)
+	return Request{ID: number(r, "iid"), State: text(r, "state"), SHA: text(r, "sha"), Source: text(r, "source_branch"), Target: text(r, "target_branch"), Repository: c.Project.ID, ForeignSource: foreign, DetailedMergeStatus: text(r, "detailed_merge_status"), MergeSHA: text(r, "merge_commit_sha"), URL: text(r, "web_url"), Reference: text(object(r, "references"), "full")}
 }

@@ -175,6 +175,13 @@ source paths. Preserve ERB context and generated module-side profile bytes; comp
 Go selection with the real Ruby profile helper. Update Go regressions and the team's
 test harness together without altering module code or weakening coverage gates.
 
+## Template requests
+
+Use `pmtool mr` from the template checkout after its reviewed source branch is
+pushed. This shares the exact-SHA CI, required review and main-sync guards of
+module requests. For create-only use `mr-create`. After template main-sync run
+`template-test`. Publish the template tag using its reviewed Git workflow.
+
 ## Publishing the launcher source
 
 Source Make targets use Git/GitHub CLI; modules use the separate pmtool workflow.
@@ -262,8 +269,9 @@ Template-test smoke checks baseline/policy and runs test/run.rb; it does not
 automatically execute audit.checks scripts or a provider CI matrix. Require
 explicit behavioral tests for custom scripts and real provider integration.
 
-Host Git/API commands currently require a `puppet-<module>` repository basename and
-matching lifecycle metadata; template selection does not remove that restriction.
+Module Git/API commands require a `puppet-<module>` repository basename and
+matching lifecycle metadata. The MR commands, main-sync, status, diff and CI
+reads also accept a tracked, valid schema-1 template checkout without metadata.json.
 Remote module URLs are constructed as HTTP(S) even for SSH/SCP origin identity;
 host Git transport rewrites can still change the transport.
 CI variable names belong to the selected team CI; PMTOOL_VERSION, release-base

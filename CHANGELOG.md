@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Preview and remove the merged launcher release branch after stable GitHub publication, preserving the release tag.
+- Reuse the guarded MR/PR workflow and CI inspection commands from template repositories.
 
 ## Release 3.1.0
 
