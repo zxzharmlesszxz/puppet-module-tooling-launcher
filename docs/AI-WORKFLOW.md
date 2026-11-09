@@ -197,7 +197,10 @@ CLI inspects the selected Puppet module through GitLab/GitHub APIs.
 
 Artifacts under dist/ci/<SHA> must pass checksums, LICENSE, source/run identity and
 native smoke. Test that downloaded binary with the team template/module. Only
-then use make push-release VERSION=vX.Y.Z. Current-main artifacts, preflight,
+then use make push-release VERSION=vX.Y.Z. After publication, the source targets
+preview and remove the merged branch while preserving its tag and GitHub Release.
+If cleanup fails, retry make release-cleanup VERSION=vX.Y.Z after fixing the issue.
+Current-main artifacts, preflight,
 exact CI, annotated immutable tags and draft-until-upload publication remain
 mandatory. push-main and ci-artifacts remain available; direct release-tag is
 local-only. Prepare/submit/push/tag noops are optional explicit previews, never

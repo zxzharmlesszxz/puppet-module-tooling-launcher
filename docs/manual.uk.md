@@ -223,6 +223,11 @@ MR чекає CI точного SHA, зливає PR, синхронізує mai
 make push-release VERSION=v2.0.0
 ```
 
+Після публікації `push-release` та `push-release-tag` автоматично показують
+preview і прибирають змерджену гілку launcher. Для окремого перегляду є
+`make release-cleanup-noop VERSION=vX.Y.Z`, для повтору видалення —
+`make release-cleanup VERSION=vX.Y.Z`. Тег і GitHub Release зберігаються.
+
 Перегляд CI:
 
 ```sh

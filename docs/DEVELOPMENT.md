@@ -111,7 +111,7 @@ required; build/test tools still run in their existing containers. Authenticatio
 uses Git/GitHub CLI configuration, never tokens embedded in Make arguments.
 
 ```text
-release-prepare → edit → check → release-submit → mr → review CI binary → push-release
+release-prepare → edit → check → release-submit → mr → review CI binary → push-release → branch cleanup
 ```
 
 ```sh
@@ -199,6 +199,20 @@ release-tag (local tag only) and push-release-tag enforce the same artifact gate
 Tag CI checks main and its successful workflow. GitHub publication remains draft
 until every upload succeeds; there is no rc.N/prerelease lane. Preserve tags after
 failure, inspect/retry CI and resume push-release-tag for the identical tag.
+After publication, `push-release` and `push-release-tag` automatically run
+`release-cleanup-noop` followed by `release-cleanup` for the same VERSION.
+Both check synchronized clean main, the matching annotated tag, the published
+non-draft stable GitHub Release and branch ancestry into the tagged commit.
+A checked-out or mismatched branch is refused. Cleanup deletes only
+`release/X.Y.Z` using an exact remote lease and preserves the tag and release.
+If cleanup fails after publication, resolve the reported issue and rerun the
+cleanup target for that version.
+
+```sh
+make release-cleanup-noop VERSION=v3.1.0
+make release-cleanup VERSION=v3.1.0
+```
+
 Build/check/clean never publish. After clean, reverify downloaded CI artifacts.
 
 ## Stock VoxBox compatibility evaluation

@@ -463,6 +463,9 @@ lint alone does not validate generated profiles.
 Use the [source Make workflow](#launcher-source-make-targets) for release branches,
 separate implementation/preparation commits, PR merge and CI artifact verification.
 Publication remains `make push-release VERSION=v2.0.0` after reviewing the binary.
+After successful publication, `push-release` and `push-release-tag` preview and
+remove the merged source release branch. Retry with `make release-cleanup VERSION=vX.Y.Z`.
+See [source release checks and cleanup](DEVELOPMENT.md#versions-and-source-publication).
 Direct release-tag creates only a local annotated tag; push-release-tag publishes
 that same tag and waits for CI. Their artifact and exact-main guards remain intact.
 Optional release-tag-noop runs those guards without creating a tag. Existing

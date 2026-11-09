@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Preview and remove the merged launcher release branch after stable GitHub publication, preserving the release tag.
+
 ## Release 3.1.0
 
 - Wait for required GitLab and GitHub review in `mr` and `mr-merge` after exact-head push CI. Recheck both gates when the source SHA changes.

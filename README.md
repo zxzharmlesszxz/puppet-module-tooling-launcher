@@ -215,6 +215,10 @@ Then publish the reviewed version:
 make push-release VERSION=v3.1.0
 ```
 
+Successful publication previews and removes the merged release branch locally
+and on GitHub. Use `make release-cleanup VERSION=v3.1.0` to retry branch cleanup.
+The annotated tag and GitHub Release are preserved.
+
 The artifact gate, local preflight, exact-main checks, immutable annotated tag and
 draft-until-upload publication remain mandatory. `make ci-artifacts` retries
 artifact verification; `make push-main` remains available for an already prepared

@@ -65,6 +65,11 @@ cat > "$scratch/gh" <<'GH'
 set -eu
 case "$1 $2" in
   'repo view') printf 'https://github.com/example/release-fixture\n' ;;
+  'release view')
+    test "$3" = "$VERSION" || exit 2
+    test "${PMTOOL_TEST_RELEASE_MISSING:-0}" = 0 || { printf '%s\n' 'release not found' >&2; exit 1; }
+    printf '%s\t%s\t%s\n' "$3" "${PMTOOL_TEST_RELEASE_DRAFT:-false}" "${PMTOOL_TEST_RELEASE_PRERELEASE:-false}"
+    ;;
   'run list')
     test "${PMTOOL_TEST_QUERY_FAIL:-0}" = 0 || exit 1
     test "${PMTOOL_TEST_NO_RUN:-0}" = 0 || exit 0
@@ -541,5 +546,84 @@ run_make ci-artifacts || fail 'artifact recovery after merge failed'
 test "$(git ls-remote --heads --tags origin)" = "$refs_before" || fail 'artifact recovery changed refs'
 test "$(wc -l < .git/source-pr-created | tr -d ' ')" = 1 || fail 'artifact recovery duplicated the PR'
 
-printf '[OK] Source branches, separate preparation, submission, PR and pipeline/log regressions passed\n'
+source_setup source-release-cleanup
+source_submit
+run_make mr VERSION=v1.0.1 || { cat "$case_root/output" >&2; fail 'cleanup fixture merge failed'; }
+refused 'annotated local release tag' release-cleanup VERSION=v1.0.1
+
+branch_ref=refs/heads/release/1.0.1
+tag_ref=refs/tags/v1.0.1
+branch_tip=$(git rev-parse "$branch_ref")
+git tag -a unrelated -m 'Unrelated local tag'
+git config push.followTags true
+git config --add remote.origin.pushurl "$scratch/other.git"
+refused 'same fetch and push URL' release-cleanup VERSION=v1.0.1
+git config --unset-all remote.origin.pushurl
+
+export PMTOOL_TEST_RELEASE_DRAFT=true
+refused 'Publication workflow for v1.0.1 succeeded. Retry branch cleanup' push-release VERSION=v1.0.1
+unset PMTOOL_TEST_RELEASE_DRAFT
+before=$(git show-ref)
+remote_before=$(git ls-remote origin)
+git show-ref --verify --quiet "$branch_ref" || fail 'draft publication removed local branch'
+grep -Fq "$branch_ref" "$case_root/output" && fail 'draft publication attempted deletion'
+
+export PMTOOL_TEST_RELEASE_MISSING=1
+refused 'release not found' release-cleanup VERSION=v1.0.1
+unset PMTOOL_TEST_RELEASE_MISSING
+export PMTOOL_TEST_RELEASE_PRERELEASE=true
+refused 'published stable GitHub release' release-cleanup VERSION=v1.0.1
+unset PMTOOL_TEST_RELEASE_PRERELEASE
+
+run_make release-cleanup-noop VERSION=v1.0.1 || { cat "$case_root/output" >&2; fail 'cleanup preview failed'; }
+grep -Fq '[NOOP] Would remove release/1.0.1' "$case_root/output" || fail 'cleanup preview omitted the branch'
+test "$(git show-ref)" = "$before" && test "$(git ls-remote origin)" = "$remote_before" || fail 'cleanup preview mutated refs'
+
+git worktree add --quiet "$case_root/release-worktree" release/1.0.1
+refused 'checked out in a worktree' release-cleanup VERSION=v1.0.1
+git worktree remove "$case_root/release-worktree"
+
+git branch --force release/1.0.1 main >/dev/null
+refused 'release refs disagree' release-cleanup VERSION=v1.0.1
+git branch --force release/1.0.1 "$branch_tip" >/dev/null
+
+cat > "$case_root/remote.git/hooks/pre-receive" <<'HOOK'
+#!/bin/sh
+exit 1
+HOOK
+chmod +x "$case_root/remote.git/hooks/pre-receive"
+refused 'pre-receive hook declined' release-cleanup VERSION=v1.0.1
+test "$(git show-ref)" = "$before" && test "$(git ls-remote origin)" = "$remote_before" || fail 'rejected cleanup changed refs'
+rm "$case_root/remote.git/hooks/pre-receive"
+
+run_make push-release-tag VERSION=v1.0.1 || { cat "$case_root/output" >&2; fail 'publication resume did not clean branch'; }
+grep -Fq '[NOOP] Would remove release/1.0.1' "$case_root/output" || fail 'publication omitted cleanup preview'
+grep -Fq '[OK] release/1.0.1 cleaned; v1.0.1 preserved' "$case_root/output" || fail 'publication omitted cleanup'
+if git show-ref --verify --quiet "$branch_ref"; then fail 'cleanup kept local branch'; fi
+if git show-ref --verify --quiet refs/remotes/origin/release/1.0.1; then fail 'cleanup kept tracking branch'; fi
+test "$(git ls-remote origin)" = "$(printf '%s\n' "$remote_before" | awk -v ref="$branch_ref" '$2 != ref')" || fail 'cleanup changed unrelated remote refs'
+test "$(git rev-parse "$tag_ref")" = "$(printf '%s\n' "$before" | awk -v ref="$tag_ref" '$2 == ref {print $1}')" || fail 'cleanup changed local tag'
+run_make release-cleanup VERSION=v1.0.1 || fail 'completed cleanup was not idempotent'
+grep -Fq 'already clean' "$case_root/output" || fail 'completed cleanup did not report its state'
+
+git branch release/1.0.1 "$branch_tip"
+git update-ref refs/remotes/origin/release/1.0.1 "$branch_tip"
+remote_before=$(git ls-remote origin)
+run_make release-cleanup VERSION=v1.0.1 || { cat "$case_root/output" >&2; fail 'local-only cleanup could not resume'; }
+if git show-ref --verify --quiet "$branch_ref" || git show-ref --verify --quiet refs/remotes/origin/release/1.0.1; then
+  fail 'local-only cleanup retained a release ref'
+fi
+test "$(git ls-remote origin)" = "$remote_before" || fail 'local-only cleanup changed remote refs'
+
+source_setup source-cleanup-unmerged
+source_submit
+git switch --quiet main
+git tag -a v1.0.1 -m 'tag excluding unmerged branch'
+git push --quiet origin refs/tags/v1.0.1
+before=$(git show-ref)
+remote_before=$(git ls-remote origin)
+refused 'must be merged into main and included' release-cleanup VERSION=v1.0.1
+test "$(git show-ref)" = "$before" && test "$(git ls-remote origin)" = "$remote_before" || fail 'unmerged cleanup changed refs'
+
+printf '[OK] Source branches, separate preparation, submission, PR, pipeline/log and cleanup regressions passed\n'
 printf '[OK] Source release target and commit-artifact regressions passed\n'

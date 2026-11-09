@@ -179,6 +179,10 @@ FAILED_ONLY=0 включає логи успішних jobs. Перегляд CI
 make push-release VERSION=v3.1.0
 ```
 
+Після публікації Makefile показує preview і видаляє змерджену релізну гілку
+локально й на GitHub. Для повтору використовуйте `make release-cleanup VERSION=v3.1.0`.
+Анотований тег і GitHub Release зберігаються.
+
 Перевірки артефактів, preflight, точного main, незмінного анотованого тега та
 публікації через draft збережено. `make ci-artifacts` повторює завантаження без
 пушу; `make push-main` лишається для вже підготовленого чистого main.

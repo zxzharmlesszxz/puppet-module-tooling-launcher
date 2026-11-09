@@ -168,7 +168,7 @@ clean: ## Remove generated binaries, checksums and local coverage reports.
 	printf '%s\n' 'Removed generated binaries, checksums and local coverage reports.'
 
 export VERSION GH RELEASE_REF RELEASE_WORKFLOW CI_ARTIFACT_ROOT CI_ARTIFACT_DIR CI_RUN_FILE
-.PHONY: release-preflight release-version-check release-worktree-check release-tag-check release-main-check release-ci-wait ci-artifacts release-artifacts-check push-main release-tag push-release-tag push-release
+.PHONY: release-preflight release-version-check release-worktree-check release-tag-check release-main-check release-ci-wait ci-artifacts release-artifacts-check push-main release-tag push-release-tag push-release release-cleanup-noop release-cleanup
 
 release-preflight: release-version-check ## Run all local release checks without Git mutations or publication.
 	$(MAKE) --no-print-directory build
@@ -321,7 +321,7 @@ release-tag: ## Create a local stable tag after verified commit artifacts and gr
 	git tag -a "$$VERSION" -m "Release $$VERSION" "$$head"; \
 	printf '[OK] Created local annotated tag %s\n' "$$VERSION"
 
-push-release-tag: ## Push/resume the verified annotated tag, then wait for its publication workflow.
+push-release-tag: ## Push/resume the annotated tag, wait for publication, then clean up the merged release branch.
 	@set -eu; \
 	$(MAKE) --no-print-directory release-worktree-check; \
 	$(MAKE) --no-print-directory release-version-check; \
@@ -352,7 +352,10 @@ push-release-tag: ## Push/resume the verified annotated tag, then wait for its p
 	test "$$(git rev-parse "$$tag_ref")" = "$$tag_object" || { printf '%s\n' 'Local tag changed while waiting' >&2; exit 2; }; \
 	final_tags="$$(git ls-remote --tags origin "$$tag_ref" "$$tag_ref^{}")"; \
 	test "$$final_tags" = "$$remote_tags" || { printf '%s\n' 'Remote tag changed while waiting' >&2; exit 2; }; \
-	printf '[OK] Release %s publication workflow succeeded\n' "$$VERSION"
+	printf '[OK] Release %s publication workflow succeeded\n' "$$VERSION"; \
+	if ! $(MAKE) --no-print-directory release-cleanup-noop || ! $(MAKE) --no-print-directory release-cleanup; then \
+	  printf 'Publication workflow for %s succeeded. Retry branch cleanup: make release-cleanup VERSION=%s\n' "$$VERSION" "$$VERSION" >&2; exit 2; \
+	fi
 
 push-release: ## After reviewing main CI artifacts, run preflight and create/push the stable tag; main is never pushed here.
 	@set -eu; \
@@ -556,6 +559,68 @@ mr: source-release-branch-check source-clean-check release-version-check ## Crea
 	"$$GH" pr merge "$$requests" --repo "$$repo" --merge --match-head-commit "$$head"; \
 	if ! $(MAKE) --no-print-directory main-sync; then printf '%s\n' 'Merge is preserved. Resolve the local issue and retry make main-sync.' >&2; exit 2; fi; \
 	if ! $(MAKE) --no-print-directory ci-artifacts; then printf '%s\n' 'Merge and synchronized main are preserved. Retry make ci-artifacts.' >&2; exit 2; fi
+
+release-cleanup-noop: ## Preview deletion of the merged, published source release branch. VERSION=vX.Y.Z.
+release-cleanup: ## Remove the merged, published source release branch locally and on GitHub. VERSION=vX.Y.Z.
+release-cleanup-noop release-cleanup: source-clean-check source-version-check
+	@set -eu; \
+	test "$$(git branch --show-current)" = main || { printf '%s\n' 'Switch to main before release cleanup' >&2; exit 2; }; \
+	branch="release/$${VERSION#v}"; ref="refs/heads/$$branch"; tracking="refs/remotes/origin/$$branch"; tag="refs/tags/$$VERSION"; \
+	main="$$(git rev-parse HEAD)"; \
+	origin="$$(git remote get-url origin)"; \
+	test "$$(git remote get-url --push --all origin)" = "$$origin" || { printf '%s\n' 'Cleanup requires the same fetch and push URL for origin' >&2; exit 2; }; \
+	repo="$$( $(MAKE) --no-print-directory source-repository )"; \
+	ref_oid() { git rev-parse --verify --quiet "$$1" || :; }; \
+	for candidate in "$$ref" "$$tracking" "$$tag"; do \
+	  if git symbolic-ref --quiet "$$candidate" >/dev/null; then printf '%s\n' 'Refusing symbolic cleanup ref' >&2; exit 2; fi; \
+	done; \
+	local_tip="$$(ref_oid "$$ref")"; tracking_tip="$$(ref_oid "$$tracking")"; \
+	tag_object="$$(ref_oid "$$tag")"; \
+	test -n "$$tag_object" && test "$$(git cat-file -t "$$tag_object")" = tag || { printf '%s\n' 'An annotated local release tag is required for cleanup' >&2; exit 2; }; \
+	tag_commit="$$(git rev-parse "$$tag^{commit}")"; \
+	remote_refs() { git ls-remote origin refs/heads/main "$$ref" "$$tag" "$$tag^{}"; }; \
+	refs="$$(remote_refs)"; \
+	remote_oid() { printf '%s\n' "$$refs" | awk -v ref="$$1" '$$2 == ref {print $$1}'; }; \
+	remote_tip="$$(remote_oid "$$ref")"; \
+	test "$$(remote_oid refs/heads/main)" = "$$main" || { printf '%s\n' 'origin/main differs from local HEAD' >&2; exit 2; }; \
+	test "$$(remote_oid "$$tag")" = "$$tag_object" && test "$$(remote_oid "$$tag^{}")" = "$$tag_commit" || { printf '%s\n' 'Remote tag differs from the local annotated release tag' >&2; exit 2; }; \
+	tip=; \
+	for sha in "$$local_tip" "$$remote_tip" "$$tracking_tip"; do \
+	  test -n "$$sha" || continue; \
+	  test -z "$$tip" || test "$$tip" = "$$sha" || { printf '%s\n' 'Local, remote or tracking release refs disagree' >&2; exit 2; }; \
+	  tip="$$sha"; \
+	done; \
+	git merge-base --is-ancestor "$$tag_commit" "$$main" && { test -z "$$tip" || git merge-base --is-ancestor "$$tip" "$$tag_commit"; } || \
+	  { printf '%s\n' 'Release branch must be merged into main and included in the release tag' >&2; exit 2; }; \
+	check_worktrees() { \
+	  worktrees="$$(git worktree list --porcelain)" || return 2; \
+	  if printf '%s\n' "$$worktrees" | grep -Fxq "branch $$ref"; then printf '%s\n' 'Release branch is checked out in a worktree' >&2; return 2; fi; \
+	}; \
+	check_worktrees; \
+	published="$$("$$GH" release view "$$VERSION" --repo "$$repo" --json tagName,isDraft,isPrerelease --jq '[.tagName, .isDraft, .isPrerelease] | @tsv')"; \
+	test "$$published" = "$$(printf '%s\tfalse\tfalse' "$$VERSION")" || { printf '%s\n' 'A published stable GitHub release is required for cleanup' >&2; exit 2; }; \
+	if [ -z "$$tip" ]; then printf '[OK] %s already clean; %s preserved\n' "$$branch" "$$VERSION"; exit 0; fi; \
+	if [ "$@" = release-cleanup-noop ]; then \
+	  printf '[NOOP] Would remove %s (local=%s remote=%s tracking=%s); preserve %s\n' "$$branch" "$$local_tip" "$$remote_tip" "$$tracking_tip" "$$VERSION"; exit 0; \
+	fi; \
+	$(MAKE) --no-print-directory source-clean-check; \
+	test "$$(git branch --show-current)" = main && test "$$(git rev-parse HEAD)" = "$$main" && \
+	  test "$$(ref_oid "$$ref")" = "$$local_tip" && test "$$(ref_oid "$$tracking")" = "$$tracking_tip" && \
+	  test "$$(ref_oid "$$tag")" = "$$tag_object" && test "$$(git remote get-url origin)" = "$$origin" && \
+	  test "$$(git remote get-url --push --all origin)" = "$$origin" && test "$$(remote_refs)" = "$$refs" || \
+	  { printf '%s\n' 'Cleanup refs or origin changed during validation' >&2; exit 2; }; \
+	check_worktrees; \
+	if [ -n "$$remote_tip" ]; then \
+	  git push --porcelain --no-mirror --no-follow-tags --recurse-submodules=no "--force-with-lease=$$ref:$$remote_tip" origin ":$$ref"; \
+	fi; \
+	if [ -n "$$local_tip" ]; then \
+	  test "$$(ref_oid "$$ref")" = "$$local_tip" || { printf '%s\n' 'Local branch changed before deletion' >&2; exit 2; }; \
+	  git branch -d -- "$$branch"; \
+	fi; \
+	if [ -n "$$tracking_tip" ] && [ -n "$$(ref_oid "$$tracking")" ]; then \
+	  git update-ref --no-deref -d "$$tracking" "$$tracking_tip"; \
+	fi; \
+	printf '[OK] %s cleaned; %s preserved\n' "$$branch" "$$VERSION"
 
 source-pipeline-id:
 	@set -eu; \
