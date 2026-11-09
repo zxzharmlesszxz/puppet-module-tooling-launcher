@@ -126,7 +126,7 @@
     },
     "bootstrap-commit-noop": {
       "module": true,
-      "read_only": false,
+      "read_only": true,
       "socket": false,
       "token": false,
       "author": true,
@@ -150,7 +150,7 @@
     },
     "release-commit-noop": {
       "module": true,
-      "read_only": false,
+      "read_only": true,
       "socket": false,
       "token": false,
       "author": true,
@@ -166,7 +166,7 @@
     },
     "bootstrap-push-noop": {
       "module": true,
-      "read_only": false,
+      "read_only": true,
       "socket": false,
       "token": true,
       "author": false,
@@ -182,7 +182,7 @@
     },
     "release-push-noop": {
       "module": true,
-      "read_only": false,
+      "read_only": true,
       "socket": false,
       "token": true,
       "author": false,
@@ -198,7 +198,7 @@
     },
     "release-tag-noop": {
       "module": true,
-      "read_only": false,
+      "read_only": true,
       "socket": false,
       "token": true,
       "author": true,
@@ -230,7 +230,7 @@
     },
     "mr-create": {
       "module": true,
-      "read_only": true,
+      "read_only": false,
       "socket": false,
       "token": true,
       "author": false,
@@ -238,7 +238,7 @@
     },
     "mr-merge": {
       "module": true,
-      "read_only": true,
+      "read_only": false,
       "socket": false,
       "token": true,
       "author": false,
@@ -254,7 +254,7 @@
     },
     "policy": {
       "module": true,
-      "read_only": true,
+      "read_only": false,
       "socket": false,
       "token": true,
       "author": false,
@@ -270,7 +270,7 @@
     },
     "policy-delete-master": {
       "module": true,
-      "read_only": true,
+      "read_only": false,
       "socket": false,
       "token": true,
       "author": false,
@@ -326,7 +326,7 @@
     },
     "help": {
       "module": false,
-      "read_only": false,
+      "read_only": true,
       "socket": false,
       "token": false,
       "author": false,
@@ -334,7 +334,7 @@
     },
     "docs": {
       "module": false,
-      "read_only": false,
+      "read_only": true,
       "socket": false,
       "token": false,
       "author": false,
@@ -342,7 +342,7 @@
     },
     "manifest": {
       "module": false,
-      "read_only": false,
+      "read_only": true,
       "socket": false,
       "token": false,
       "author": false,

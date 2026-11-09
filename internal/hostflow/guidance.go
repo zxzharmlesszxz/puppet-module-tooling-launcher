@@ -10,13 +10,16 @@ import (
 type GuidanceContext struct {
 	Branch, Version string
 	Dirty, Pushed   bool
+	Template        bool
 }
 
 func (e *Engine) guidanceContext() GuidanceContext {
-	c := GuidanceContext{}
+	c := GuidanceContext{Template: e.Project.Template}
 	c.Branch, _ = e.branch()
-	if metadata, err := e.metadata(""); err == nil {
-		c.Version = metadata.Version
+	if !c.Template {
+		if metadata, err := e.metadata(""); err == nil {
+			c.Version = metadata.Version
+		}
 	}
 	status, err := e.Git.Text("status", "--porcelain", "--untracked-files=all")
 	c.Dirty = err == nil && status != ""
@@ -116,6 +119,9 @@ func Guidance(o Options, root string, c GuidanceContext, success bool) (string, 
 		}
 		return "If changed, review then apply; if unchanged, continue with check:", selected("sync", flags...)
 	case "sync", "main-sync", "mr", "audit":
+		if c.Template {
+			return "", []string{"pmtool", "template-test", "--module", root}
+		}
 		return "", selected("check")
 	case "module-new", "module-build":
 		return "Review generated files and metadata before choosing the next operation.", nil
@@ -182,9 +188,15 @@ func Guidance(o Options, root string, c GuidanceContext, success bool) (string, 
 			prefix = "If every required job succeeded for the current SHA:"
 		}
 		if ref == "main" && c.Branch == "main" {
+			if c.Template {
+				return prefix, []string{"pmtool", "template-test", "--module", root}
+			}
 			return prefix, selected("release-tag")
 		}
 		if strings.HasPrefix(ref, "v") && validVersion(strings.TrimPrefix(ref, "v")) == nil {
+			if c.Template {
+				return "Verify template tag CI before selecting this version in consuming modules.", nil
+			}
 			return "Verify the Forge release and canary; select the actual completed branch before cleanup:", selected("cleanup-noop", "--branch", "release/"+strings.TrimPrefix(ref, "v"))
 		}
 		if strings.HasPrefix(ref, "release/") || strings.HasPrefix(ref, "bootstrap/") {

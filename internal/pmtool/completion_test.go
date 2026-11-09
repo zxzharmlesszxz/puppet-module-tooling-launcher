@@ -131,7 +131,12 @@ func TestCompletionFiltersFlagsByCommandAndCompletesDocSections(t *testing.T) {
 		{"audit", "--template", "--name"},
 		{"doctor", "--voxbox-image", "--watch"},
 		{"module-new", "--name", "--watch"},
-		{"template-test", "--module", "--title"},
+		{"template-test", "--module", "--help"},
+		{"forge-publish", "--module", "--help"},
+		{"migrate", "--module", "--help"},
+		{"settings", "--provider", "--help"},
+		{"check", "--template", "--help"},
+		{"mr", "--help", "--stage"},
 	} {
 		a, d, out := testApp(t)
 		a.run([]string{"__complete", row.command, "--"})

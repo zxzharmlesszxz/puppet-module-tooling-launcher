@@ -36,9 +36,11 @@ metadata is not a permission grant for remote API actions.
 ## Select a clone and execution environment
 
 Run in one physical ordinary module clone or supply --module after the command.
-Provider/project come from origin. Host Git/API project names must match
-`puppet-<module>`; lifecycle checks matching owner-module metadata. --image, --config, --docker, --executor,
---color and --dry-run precede the command. Module template/CI/provider settings
+Provider/project come from origin. Module Git/API project names match
+`puppet-<module>` and lifecycle checks matching owner-module metadata.
+The MR commands, main-sync, pipeline reads, status and diff also accept a
+template checkout with a tracked, valid schema-1 `template.yml` and no `metadata.json`.
+Global flags precede the command. Module template/CI/provider settings
 come from .sync.yml with CLI precedence. See [manual](manual.md).
 
 Run `pmtool doctor` before troubleshooting `check`. See the
@@ -141,8 +143,8 @@ the team's policy; templates can differ without changing the tool environment.
 
 ## Git/API execution
 
-Git, hosting and release commands execute directly in Go using host Git and REST
-APIs. They do not pull an image or require Ruby. Puppet/RSpec checks and ERB rendering use the
+Git, hosting and release commands use host Git and provider APIs directly in Go.
+GitHub review decisions use GraphQL. They do not pull an image or require Ruby. Puppet/RSpec checks and ERB rendering use the
 selected tool environment. The existing command order, optional previews, immutable
 release tags, pinned CI waits and recovery commands are unchanged.
 See [workflow guards](GO-WORKFLOW.md).

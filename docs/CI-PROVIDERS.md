@@ -1,7 +1,7 @@
 # GitLab and GitHub CI
 
 One launcher and runtime support GitLab and GitHub. Commands operate on the selected local
-module clone; repository identity and hosting server come from its `origin`.
+module or template checkout. Repository identity and hosting server come from `origin`.
 `mr`, `mr-create` and `mr-merge` keep their names on both providers and operate on
 GitHub pull requests when GitHub is selected. No second launcher is required.
 
@@ -44,9 +44,10 @@ by the runtime, preserving isolation of provider credentials.
 the compatibility default. For GitHub Enterprise use `--provider github` consistently
 or set `ci.provider: github` in `.sync.yml`. Explicit CLI selection wins.
 
-Host Git/API commands require the current repository basename `puppet-<module>`,
-with lifecycle metadata naming the same module after its owner prefix. This is
-a current host-workflow restriction, independent of the selected template.
+Module Git/API commands require the repository basename `puppet-<module>` and
+matching lifecycle metadata. MR commands, main-sync, status, diff and CI reads
+also accept an ordinary template checkout with a tracked, valid schema-1
+`template.yml` and no `metadata.json`.
 
 Identity is read from exactly one repository-local `remote.origin.url`. Runner
 `url.*.insteadOf` rules, including external configuration through `include.path`,
@@ -124,13 +125,16 @@ CI succeeds, `mr` and `mr-merge` wait for required human approval. GitLab uses
 with the same provider token and waits for required review or changes requested.
 If no review is outstanding, the command proceeds after the CI check. A new
 head restarts both checks. The merge API receives the verified
-head SHA. The provider still enforces all branch protection rules.
+head SHA. The source branch must belong to the same repository. The provider
+enforces all branch protection rules.
 
 Manual CI, a rejected workflow or an API error stops the merge. Ctrl+C stops
 waiting and leaves the request open. Resume with `pmtool mr` on the source
 branch. `mr-create` opens or reuses the request without waiting.
 
-This review wait belongs to module-facing `pmtool mr` and `pmtool mr-merge`.
+This review wait belongs to `pmtool mr` and `pmtool mr-merge` in module and
+template repositories. GitHub selects the generated template push workflow
+`.github/workflows/template-test.yml` for templates.
 The launcher's own source release uses `make mr`, which waits for CI and relies
 on GitHub to enforce required review at merge time.
 

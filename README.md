@@ -46,8 +46,9 @@ selects a different CI source. No fleet, team inventory or separate team checkou
 Repository identity comes from one repository-local `remote.origin.url`.
 Runner authentication rewrites stay transport configuration. The configured URL
 must be free of passwords, query strings and fragments; multiple origin URLs are
-rejected. Host Git/API commands currently require a repository named
-`puppet-<module>`, with matching module metadata for lifecycle operations. See the [CI guide](docs/CI-PROVIDERS.md#provider-and-credentials).
+rejected. Module Git/API commands require a repository named `puppet-<module>`,
+with matching module metadata for lifecycle operations. The same MR commands
+also work from a valid template checkout. See the [CI guide](docs/CI-PROVIDERS.md#provider-and-credentials).
 
 ## Documentation and AI
 
@@ -55,7 +56,6 @@ These commands work without Docker, an image pull, module access or credentials:
 
 ```sh
 pmtool help
-pmtool doctor
 pmtool docs onboarding --section list
 pmtool docs launcher
 pmtool ai export --format prompt
@@ -67,6 +67,8 @@ AI exports describe the installed launcher version. `--output PATH` exclusively
 creates a new file; existing files and symlinks are preserved. No skill is installed
 automatically. Read the [manual](docs/manual.md), [workflow](docs/USAGE.md),
 [template format](docs/TEMPLATES.md) and [development guide](docs/DEVELOPMENT.md).
+For module diagnostics, use `pmtool doctor` from the checkout. The template and
+Forge checks use the configured read access. See [doctor](docs/manual.md#doctor).
 
 ## Create a template and inspect CI logs
 

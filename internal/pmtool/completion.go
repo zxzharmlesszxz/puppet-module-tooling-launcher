@@ -222,8 +222,12 @@ func (a *app) complete(opts options, words []string) int {
 }
 
 func (a *app) commandCompletionFlags(opts options, command string) []string {
-	candidates := []string{"--help"}
+	if command == "settings" {
+		return []string{"--module", "--ci", "--provider", "--template"}
+	}
+	var candidates []string
 	if hostflow.IsCommand(command) {
+		candidates = append(candidates, "--help")
 		for _, name := range a.completionManifest(opts).Options {
 			if hostflow.AllowsOption(command, "--"+name) {
 				candidates = append(candidates, "--"+name)
@@ -242,6 +246,7 @@ func (a *app) commandCompletionFlags(opts options, command string) []string {
 	case "audit", "check":
 		flags += " ci provider template ci-project voxbox-image"
 	case "doctor":
+		candidates = append(candidates, "--help")
 		flags += " provider template voxbox-image"
 	case "voxbox":
 		flags += " stage voxbox-image"
@@ -249,7 +254,7 @@ func (a *app) commandCompletionFlags(opts options, command string) []string {
 		flags += " name voxbox-image"
 	case "module-build", "module-convert", "module-convert-noop", "release-checks":
 		flags += " voxbox-image"
-	case "template-test", "forge-publish":
+	case "migrate", "template-test", "forge-publish":
 	default:
 		return candidates
 	}

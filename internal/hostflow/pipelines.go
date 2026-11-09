@@ -376,13 +376,9 @@ func (e *Engine) request(o Options, create, merge bool) error {
 		}
 		title := o.Title
 		if title == "" {
-			m, err := e.metadata("")
+			title, err = e.requestTitle(branch)
 			if err != nil {
 				return err
-			}
-			title = "[REL] Release " + m.Version
-			if strings.HasPrefix(branch, "bootstrap/") {
-				title = "[UPD] Update module"
 			}
 		}
 		request, err = e.API.CreateRequest(e.Context, title, branch)

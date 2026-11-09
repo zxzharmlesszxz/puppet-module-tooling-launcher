@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## Release 3.2.0
 
 - Preview and remove the merged launcher release branch after stable GitHub publication, preserving the release tag.
+- Reuse the guarded MR/PR workflow and CI inspection commands from template repositories.
+- Show the launcher version in short help, organize commands and flags, and align shell completion with the supported options.
 
 ## Release 3.1.0
 

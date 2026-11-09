@@ -1,4 +1,4 @@
-// Package hostflow implements guarded module Git and hosting operations on the host.
+// Package hostflow implements guarded Git and hosting operations on the host.
 package hostflow
 
 import (
@@ -20,6 +20,7 @@ type Settings struct {
 
 type Project struct {
 	Root, Origin, Remote, Endpoint, ID, Name, Provider string
+	Template                                           bool
 }
 
 var repositorySegment = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
@@ -143,6 +144,10 @@ func OriginContext(origin, provider string) (string, string, error) {
 }
 
 func ResolveProject(root, origin string, settings Settings, getenv func(string) string) (Project, error) {
+	return resolveProject(root, origin, settings, getenv, false)
+}
+
+func resolveProject(root, origin string, settings Settings, getenv func(string) string, template bool) (Project, error) {
 	u, err := parseOrigin(origin)
 	if err != nil {
 		return Project{}, err
@@ -218,14 +223,14 @@ func ResolveProject(root, origin string, settings Settings, getenv func(string) 
 		}
 	}
 	name := parts[len(parts)-1]
-	if !repositoryName.MatchString(name) {
+	if !template && !repositoryName.MatchString(name) {
 		return Project{}, fmt.Errorf("origin repository name must match puppet-<module>")
 	}
 	remote := base + "/" + id + ".git"
 	if provider == "gitlab" {
 		remote = strings.TrimSuffix(endpoint, "/api/v4") + "/" + id + ".git"
 	}
-	return Project{Root: root, Origin: origin, Remote: remote, Endpoint: endpoint, ID: id, Name: name, Provider: provider}, nil
+	return Project{Root: root, Origin: origin, Remote: remote, Endpoint: endpoint, ID: id, Name: name, Provider: provider, Template: template}, nil
 }
 
 func Identity(remote string) string {

@@ -38,8 +38,9 @@ Provider: --provider → ci.provider → визначення з origin.
 Для першого підключення наявного модуля виконайте [bootstrap](docs/MODULE-ONBOARDING.md#3-bootstrap-гілка),
 перш ніж запускати check проти ще не синхронізованого baseline.
 
-Git/API-команди наразі вимагають назву репозиторію `puppet-<module>`; lifecycle
-звіряє назву модуля з metadata. Це чинне обмеження хостового workflow.
+Модульні Git/API-команди вимагають назву репозиторію `puppet-<module>`.
+Lifecycle звіряє назву модуля з metadata. MR-команди також працюють із
+валідним checkout шаблону.
 
 Ідентичність репозиторію визначає єдиний локальний `remote.origin.url`.
 Правила автентифікації runner лишаються конфігурацією Git-транспорту.
@@ -81,7 +82,6 @@ CI закріплює стабільну версію генератора; дл
 
 ```sh
 pmtool help
-pmtool doctor
 pmtool docs launcher
 pmtool docs onboarding --section list
 pmtool ai export --format prompt
@@ -91,7 +91,9 @@ pmtool completion zsh
 
 AI export описує встановлену версію launcher. --output PATH створює лише новий
 файл; наявні файли й symlink зберігаються. Скілл автоматично не встановлюється.
-Докладніше: [інструкція](docs/manual.uk.md), [English manual](docs/manual.md).
+Докладніше в [українському посібнику](docs/manual.uk.md) та [English manual](docs/manual.md).
+Для діагностики з папки модуля використовуйте `pmtool doctor`. Перевірки шаблону
+та Forge використовують налаштований доступ на читання.
 
 ## Межі виконання
 

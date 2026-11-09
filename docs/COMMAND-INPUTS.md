@@ -28,6 +28,9 @@ but do not require image/tool version environment variables for normal use.
 
 See [developer and CI token scopes/roles](TOKENS.md) and `pmtool docs tokens`.
 
+The MR commands, `main-sync` and pipeline reads also work from a template
+checkout. `--module` selects the checkout when running from another directory.
+
 The selected provider token means **one** of `GITLAB_TOKEN` or `GITHUB_TOKEN`,
 according to origin/explicit provider. Git helper template authentication does
 not replace provider API authentication. API operations need permissions
