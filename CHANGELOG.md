@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## Release 3.1.0
 
 - Wait for required GitLab and GitHub review in `mr` and `mr-merge` after exact-head push CI. Recheck both gates when the source SHA changes.
 - Add `pmtool doctor` to diagnose Git origin, template access, VoxBox availability and Forge fixture reads.
