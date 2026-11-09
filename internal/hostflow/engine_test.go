@@ -24,6 +24,7 @@ type fakeHosting struct {
 	requests  func(string, string, string) ([]Request, error)
 	request   func(int64) (Request, error)
 	merge     func(int64, string) (Request, error)
+	review    func(Request) (ReviewStatus, error)
 	create    func(string, string) (Request, error)
 }
 
@@ -69,6 +70,13 @@ func (f *fakeHosting) Request(_ context.Context, id int64) (Request, error) {
 	}
 	return Request{}, ErrNotFound
 }
+func (f *fakeHosting) Review(_ context.Context, r Request) (ReviewStatus, error) {
+	if f.review != nil {
+		return f.review(r)
+	}
+	return ReviewStatus{SHA: r.SHA}, nil
+}
+
 func (f *fakeHosting) MergeRequest(_ context.Context, id int64, sha string) (Request, error) {
 	if f.merge != nil {
 		return f.merge(id, sha)
@@ -398,7 +406,7 @@ func TestMergeHeadChangeAndRecovery(t *testing.T) {
 		return []Pipeline{{ID: 4, Ref: q.Ref, SHA: sha, Status: "running"}}, nil
 	}
 	e.Sleep = func(context.Context, time.Duration) error { r.SHA = "changed"; return nil }
-	expectError(t, e.request(Options{}, false, true), "head or state changed")
+	expectError(t, e.request(Options{}, false, true), "source pipeline identity changed")
 	r.SHA = sha
 	api.pipelines = func(q PipelineQuery) ([]Pipeline, error) {
 		return []Pipeline{{ID: 4, Ref: q.Ref, SHA: sha, Status: "success"}}, nil

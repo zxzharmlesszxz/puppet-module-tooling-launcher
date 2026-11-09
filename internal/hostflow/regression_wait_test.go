@@ -210,7 +210,7 @@ func TestMigratedMergeWaitMatrixBothCommands(t *testing.T) {
 				api.request = func(int64) (Request, error) { return r, nil }
 				polls, sleeps, merged := 0, 0, 0
 				api.pipelines = func(q PipelineQuery) ([]Pipeline, error) {
-					if q.Ref != r.Source || q.SHA != head || q.Source != "push" {
+					if q.Ref != r.Source || q.SHA != r.SHA || q.Source != "push" {
 						t.Fatal(q)
 					}
 					polls++

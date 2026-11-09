@@ -18,13 +18,16 @@ func (e *Engine) pause(message string, delay time.Duration) error {
 	e.print("[WAIT] %s; checking again in %s\n", message, delay)
 	return e.Sleep(e.Context, delay)
 }
+
+var errNoMatchingPipeline = errors.New("no matching pipeline")
+
 func (e *Engine) latest(q PipelineQuery) (Pipeline, error) {
 	values, err := e.API.Pipelines(e.Context, q)
 	if err != nil {
 		return Pipeline{}, err
 	}
 	if len(values) == 0 || values[0].ID <= 0 {
-		return Pipeline{}, fmt.Errorf("no matching pipeline for %s at %s", q.Ref, q.SHA)
+		return Pipeline{}, fmt.Errorf("%w for %s at %s", errNoMatchingPipeline, q.Ref, q.SHA)
 	}
 	return values[0], nil
 }
@@ -393,46 +396,12 @@ func (e *Engine) request(o Options, create, merge bool) error {
 	if !merge {
 		return nil
 	}
-	request, err = e.API.Request(e.Context, request.ID)
+	sha, err := e.waitMergeReady(request.ID, branch)
 	if err != nil {
 		return err
 	}
-	sha := request.SHA
-	if sha == "" {
-		return fmt.Errorf("merge request has no head SHA")
-	}
-	for {
-		current, err := e.API.Request(e.Context, request.ID)
-		if err != nil {
-			return err
-		}
-		if current.SHA != sha || current.Source != branch || current.Target != "main" || current.State != "opened" && current.State != "open" {
-			return fmt.Errorf("merge request head or state changed")
-		}
-		p, err := e.latest(PipelineQuery{Ref: branch, SHA: sha, Source: "push"})
-		if err != nil {
-			return err
-		}
-		if p.Ref != branch || p.SHA != sha {
-			return fmt.Errorf("source pipeline identity changed")
-		}
-		if !active(p.Status) {
-			if p.Status != "success" {
-				e.failedLogs(p)
-				return fmt.Errorf("source pipeline %d is %s", p.ID, p.Status)
-			}
-			break
-		}
-		if err := e.pause(fmt.Sprintf("source pipeline %d %s", p.ID, p.Status), 5*time.Second); err != nil {
-			return err
-		}
-	}
-	current, err := e.API.Request(e.Context, request.ID)
-	if err != nil {
+	if err := e.Context.Err(); err != nil {
 		return err
-	}
-	if current.SHA != sha || current.Source != branch || current.Target != "main" || current.State != "opened" && current.State != "open" {
-		return fmt.Errorf("merge request changed before merge")
 	}
 	result, err := e.API.MergeRequest(e.Context, request.ID, sha)
 	if err != nil {
