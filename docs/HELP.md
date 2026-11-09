@@ -7,6 +7,7 @@ Module workflow:
 
 Commands:
   status, diff, settings       Inspect the current module
+  doctor                       Diagnose origin, template, VoxBox and Forge
   sync, audit, check           Synchronize the baseline and run checks
   voxbox, release-checks       Run a selected validation phase
   mr, pipeline-jobs, pipeline-logs, cleanup

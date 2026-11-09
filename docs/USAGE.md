@@ -23,6 +23,7 @@ See [required command inputs and optional overrides](COMMAND-INPUTS.md).
 - Module pushes/tags: bootstrap-push, bootstrap-push-noop, release-push,
   release-push-noop, release-tag, release-tag-noop.
 - Requests and CI: mr, mr-create, mr-merge, pipeline-jobs, pipeline-logs.
+- Diagnostics: doctor checks origin, template access, VoxBox and Forge.
 - Policy and cleanup: policy, policy-noop, policy-delete-master, cleanup, cleanup-noop.
 - Inspection: status, diff.
 - Compatibility aliases: bootstrap-local, bootstrap-local-noop, audit-local. See the
@@ -39,6 +40,11 @@ Provider/project come from origin. Host Git/API project names must match
 `puppet-<module>`; lifecycle checks matching owner-module metadata. --image, --config, --docker, --executor,
 --color and --dry-run precede the command. Module template/CI/provider settings
 come from .sync.yml with CLI precedence. See [manual](manual.md).
+
+Run `pmtool doctor` before troubleshooting `check`. See the
+[doctor checks and limits](manual.md#doctor). `mr` and `mr-merge` wait for required
+human review after exact-head push CI succeeds. `mr-create` stops after opening
+the request.
 
 ## Template authoring and CI logs
 
@@ -108,7 +114,7 @@ release-prepare → sync → edit → check → release-submit → mr → check 
 Prepare --version X.Y.Z, then update metadata/changelog and code separately.
 release-submit commits and pushes; standalone release-commit is local-only.
 If push fails, preserve the commit and retry release-push. mr creates/reuses,
-waits for exact-head CI, merges that SHA and synchronizes main. Retry main-sync
+waits for exact-head push CI and required review, merges that SHA and synchronizes main. Retry main-sync
 after a sync failure instead of merging again. check follows successful mr.
 
 release-tag waits for exact-main CI, pushes the annotated tag and waits for

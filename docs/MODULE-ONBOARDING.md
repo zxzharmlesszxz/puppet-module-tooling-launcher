@@ -320,12 +320,14 @@ pmtool bootstrap-push
 pmtool mr --branch bootstrap/shared-contracts    --title '[UPD] Bootstrap shared module contracts'
 ```
 
-mr створює або знаходить один opened MR цієї гілки в main, чекає CI його SHA
+mr створює або знаходить один opened MR цієї гілки в main, чекає CI його SHA й обов’язкового approval
 кожні 5 секунд, мерджить лише той SHA та запускає guarded main-sync.
 Після успіху clone вже на актуальному main. Socket і commit author не потрібні.
 
-Зміна head, failed/canceled/skipped/manual, missing pipeline або API error
-зупиняють merge. Якщо CI ще не встановлений, виправте bootstrap/include; не
+Якщо head змінився під час очікування, pmtool заново перевіряє push CI та approval.
+Після зміни SHA команда дає новому пайплайну до хвилини на появу. Статуси
+failed/canceled/skipped/manual, відсутність пайплайна або помилка API зупиняють
+мердж. Якщо CI ще не встановлений, виправте bootstrap/include; не
 створюйте main із тієї ж гілки для приховування порожнього/конфліктного MR.
 Невдалий merge не запускає sync. Якщо merge пройшов, але local sync впав,
 виправте локальний стан і повторіть лише main-sync; MR уже merged. Немає reset/stash.
@@ -375,7 +377,7 @@ version bump: після mr main уже синхронізовано — вик�
 pmtool release-submit
 ```
 
-Далі mr створює/знаходить MR, чекає CI, мерджить і синхронізує main.
+Далі mr створює/знаходить MR, чекає CI й обов’язкового approval, мерджить і синхронізує main.
 Окремі release-commit/release-push та їхні noop лишаються доступними за потреби.
 Якщо push після комміту впав, повторіть лише release-push; локальний комміт збережено.
 

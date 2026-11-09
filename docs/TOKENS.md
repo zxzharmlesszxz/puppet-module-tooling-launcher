@@ -69,6 +69,9 @@ workflow files. Organization approval, SSO authorization and App installation
 selection may additionally restrict access. Do not request administration rights
 for ordinary edits if another operator owns the policy step.
 
+For module-facing `mr` and `mr-merge`, the same token must also be able to read
+the PR review decision through GraphQL.
+
 The pmtool variable is named `GITHUB_TOKEN` whether its value is a PAT, App token
 or an Actions-generated token. Those credentials have different behavior. Pushes
 made with the automatic Actions token do not create the next `push` workflow,
@@ -159,6 +162,9 @@ See [standard Forge fixtures](FIXTURES.md). This workflow requires pmtool 3.0.0;
 previously published v2 tags retain their old behavior.
 
 ## Early checks and diagnosing refusals
+
+`pmtool doctor` uses the normal template and Forge read credentials. It needs
+neither a module provider API token nor a Forge publishing token.
 
 Before actions, pmtool reports missing required argument/env names and exits
 nonzero. Optional overrides and values inferred from origin, Git config, metadata

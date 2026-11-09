@@ -9,8 +9,8 @@ Its binary contains the Go workflow, command catalog and minimal Ruby rendering 
 executables/dependencies only. Team templates supply contracts and audit policy.
 
 Git/API and release operations are implemented in Go and use the host Git
-executable plus GitLab/GitHub REST APIs. They need no Docker, Ruby SDK or image
-configuration. Template checkout, sync, audit and planning are Go-owned. Puppet parsing and ERB use Ruby
+executable and the provider APIs. GitHub review decisions use GraphQL. These
+operations need no Docker, Ruby SDK or image configuration. Template checkout, sync, audit and planning are Go-owned. Puppet parsing and ERB use Ruby
 in the selected tool environment. No launcher source is baked into that image.
 See [native workflow guarantees](GO-WORKFLOW.md) for guards and recovery.
 
@@ -118,6 +118,34 @@ last 100 lines of failed jobs. A log error only produces a warning: it does not
 replace the CI error, permit merge/tag, remove a published tag or restart publication.
 Use pipeline-logs to investigate; a successful log command does not mean CI is green.
 
+## Doctor
+
+```sh
+pmtool doctor
+pmtool doctor --module /path/to/puppet-example --template 'git.example.org/team/template@v2.0.3'
+```
+
+Doctor reports origin, template, VoxBox and Forge separately. It returns 1 if a
+check fails, or 130 on interruption. It derives the provider and project from
+the configured origin and reads the selected template with the usual Git helper
+or explicit template token override. An origin check needs no hosting API token.
+Use `--provider` or `--template` to override module settings. An invalid `.sync.yml`
+fails the origin and template checks while VoxBox and Forge are still checked.
+
+With Docker it checks the daemon and both local image selections without
+pulling. The baseline image uses global `--image` or the launcher config. The
+validation image uses `--voxbox-image`, then `VOXBOX_IMAGE`, then the built-in pin. With
+`--executor native` it checks the VoxBox bundle and Rakefile. Forge checks use
+`FORGE_URL` and the read-only `FORGE_TOKEN` when configured. A module without
+Forge fixtures skips the Forge check. Doctor reads release catalogs and probes
+the gzip header of archives for exact versions. For transitive fixtures, it reads
+dependencies reported by exact release metadata. Unpinned and range references
+are checked at the catalog level. Run `pmtool check` for actual dependency
+resolution, complete archive downloads and module validation.
+
+Doctor does not write the module or launcher configuration. Use global
+`--dry-run` to print the checks without contacting external services.
+
 ## Configuration
 
 The host file is `~/.config/puppet-module-tooling/config.json`. New configuration
@@ -187,7 +215,7 @@ remains GitLab-only compatibility: it selects /ci/puppet-module.yml at the fixed
 v0.6.0 ref, not the current template revision. Prefer a complete versioned --ci.
 
 Use root `pmtool --help` or `pmtool docs` for documentation. Command-local help is
-not uniform: host Git/API commands and template-init support --help; template-test
+not uniform: host Git/API commands, doctor and template-init support --help; template-test
 and validation/jig/forge-publish parsers do not implement that flag. `template-test` takes no
 arguments or exactly --module PATH with a separate path argument.
 
@@ -355,7 +383,7 @@ Native mode refuses host Git/API commands, including status and pipeline reads.
 forge-publish is a separate host Go operation and also rejects --executor native.
 Local help, settings and template-init are handled before executor dispatch. Use regular pmtool commands
 without --executor native for interactive releases; their Go backend uses host Git
-and REST directly, without starting Docker.
+and the provider APIs directly, without starting Docker.
 
 ## Bootstrap
 
@@ -384,7 +412,8 @@ branch. Update metadata, matching changelog, implementation, tests and README.
 
 `release-submit` commits then pushes the branch. If push fails, preserve the commit
 and retry `release-push`. `mr` creates/reuses the MR, waits for its exact-head push
-pipeline, merges that SHA and synchronizes local main. If synchronization fails,
+pipeline and any required human approval, merges that SHA and synchronizes local
+main. If synchronization fails,
 preserve the merge and retry `main-sync`. After combined mr, run check directly.
 
 `release-tag` validates exact-main CI, creates/pushes an annotated tag without
