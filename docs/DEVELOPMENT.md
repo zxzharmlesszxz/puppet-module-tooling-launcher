@@ -7,7 +7,7 @@ Go validation plans, process execution, output, AI export and completion.
 internal/hostflow owns Git, REST providers, release operations and their regressions.
 internal/templatekit owns template checkout/authentication, schema and policy loading,
 CI selection, baseline rendering requests, sync, ownership and general audit.
-internal/fixturekit owns host-side fixture downloads, archive verification and
+internal/fixturekit owns standard Forge installer configuration, private credentials and
 temporary fixture manifests. internal/scaffold owns neutral starter assets and
 provider-specific CI generation.
 internal/workflow contains only the embedded command catalog. docs contains the
@@ -67,13 +67,13 @@ Formatting targets recurse through cmd/internal/docs, including internal/scaffol
 make format
 make check
 make full-check
-make build VERSION=v2.1.0
+make build VERSION=v3.0.0
 ```
 
 Go checks include format, vet, golangci-lint, coverage threshold, race tests,
-govulncheck, gosec and actionlint. The workflow-check target compiles the same Go template test suite and runs it
-inside the selected SDK with real ERB, then applies strict RuboCop to the remaining
-Ruby assets. Helper assembly regressions also enforce one top-level profile class
+govulncheck, gosec and actionlint. The workflow-check target compiles the Go
+template and Forge fixture suites and runs them in the selected SDK with real
+ERB, fixture parsing and native Puppet settings, then strictly lints Ruby assets. Helper assembly regressions also enforce one top-level profile class
 with a nested group-selection helper and check the generated class boundaries
 and preserve module template/CI settings. Template suites must lint the actual
 rendered Ruby under supported module styles; linting ERB or engine assets alone
@@ -88,7 +88,7 @@ a sibling environment checkout or a custom runtime image.
 
 Cross-builds copy the preloaded Go modules into a private writable temporary
 cache. Builds stay offline under the invoking UID/GID and preserve the image-owned
-cache. Use `make build VERSION=v2.1.0` to verify a release; plain `make build`
+cache. Use `make build VERSION=v3.0.0` to verify a release; plain `make build`
 intentionally produces `dev` artifacts.
 
 Release regression tests use temporary local bare Git remotes and a fake gh.
@@ -115,22 +115,22 @@ release-prepare → edit → check → release-submit → mr → review CI binar
 ```
 
 ```sh
-make release-prepare VERSION=v2.1.0
+make release-prepare VERSION=v3.0.0
 make check
-make release-submit VERSION=v2.1.0 MESSAGE='Describe the implementation'
-make mr VERSION=v2.1.0
+make release-submit VERSION=v3.0.0 MESSAGE='Describe the implementation'
+make mr VERSION=v3.0.0
 ```
 
 Prepare requires an ordinary committed clone and clean worktree, synchronizes main
 without reset/stash, verifies that the new canonical version exceeds main's latest
 changelog release, rejects existing local/remote branch or tag names, then creates
-`release/2.1.0`. Do not repeat it on an edited release branch. Optional
+`release/3.0.0`. Do not repeat it on an edited release branch. Optional
 `release-prepare-noop` previews from already synchronized clean main.
 
 Put implementation notes under `## Unreleased`. Submit automatically stages the
 reviewed source files, commits with MESSAGE, then creates a separate
-`chore(release): prepare v2.1.0` commit whose only change is finalizing that heading
-to `## Release 2.1.0`. It pushes the branch with tag following disabled. VERSION
+`chore(release): prepare v3.0.0` commit whose only change is finalizing that heading
+to `## Release 3.0.0`. It pushes the branch with tag following disabled. VERSION
 must match the branch. Existing tags are never reused. Same-version corrective
 commits on an unmerged branch are supported; already finalized notes do not create
 empty preparation commits. `release-submit-noop` shows selection/diff without
@@ -140,9 +140,9 @@ release-tag-noop preview their respective operations with the normal guards.
 Individual operations remain available:
 
 ```sh
-make release-commit VERSION=v2.1.0 MESSAGE='Describe the implementation'
-make release-finalize VERSION=v2.1.0
-make release-push VERSION=v2.1.0
+make release-commit VERSION=v3.0.0 MESSAGE='Describe the implementation'
+make release-finalize VERSION=v3.0.0
+make release-push VERSION=v3.0.0
 ```
 
 Failures preserve commits and staging. After push failure, retry release-push or
@@ -167,7 +167,7 @@ Read source CI without manually composing API requests:
 ```sh
 make pipeline-jobs
 make pipeline-jobs REF=main WATCH=5
-make pipeline-logs REF=release/2.1.0 TAIL=100
+make pipeline-logs REF=release/3.0.0 TAIL=100
 make pipeline-logs REF=main RUN_ID=123 JOB=456 FAILED_ONLY=0
 ```
 
@@ -190,7 +190,7 @@ Existing different artifacts are preserved and rejected.
 Only after reviewing those artifacts:
 
 ```sh
-make push-release VERSION=v2.1.0
+make push-release VERSION=v3.0.0
 ```
 
 Publication still requires verified current-main artifacts, local preflight,
@@ -350,7 +350,7 @@ published tag is immutable. Source submissions keep implementation and the
 changelog-only preparation commit separate, with Unreleased notes finalized by
 release-finalize for the selected version.
 
-internal/fixturekit owns host-side fixture downloads, archive verification and
+internal/fixturekit owns standard Forge installer configuration, private credentials and
 temporary fixture manifests. internal/scaffold owns neutral starter assets,
 generated provider validation CI
 and exclusive new-directory writes. No deployed team template is embedded.
@@ -393,8 +393,8 @@ Source release targets operate on this launcher, not a Puppet module.
   source vulnerabilities/secrets/licenses/misconfiguration. `voxbox-security`
   explicitly scans the upstream tool image; findings there are advisory, while
   scanner failures remain errors. Source security gates remain strict.
-- SDK integration: `workflow-check` runs real Ruby/ERB regressions and Ruby-asset
-  lint. `voxbox-check` combines those checks with the explicit upstream image scan.
+- SDK integration: `workflow-check` runs real Ruby/ERB and standard Forge-installer
+  configuration regressions, plus Ruby-asset lint. `voxbox-check` combines those checks with the explicit upstream image scan.
   A skipped optional external template test is not a passed team integration.
 - Aggregate/build: `check` runs formatting, vet/lint, coverage, actionlint and source
   regression targets. `full-check` adds race/security/SDK/Trivy checks. `build` runs
@@ -429,7 +429,7 @@ Source release targets operate on this launcher, not a Puppet module.
 
 ## Deferred review-approval waiting
 
-Required human MR/PR approvals are planned for a later launcher release, not v2.1.0.
+Required human MR/PR approvals are planned for a later launcher release, not v3.0.0.
 Current mr waits for exact-head CI and then asks the provider to merge; an unmet
 approval rule can therefore refuse the merge. Do not claim that approval waiting
 is implemented or bypass provider review rules. The follow-up must cover GitLab
@@ -455,17 +455,17 @@ starter does not supply those checks.
 The launcher module, development/check image and source builds require Go 1.27.3.
 The go.mod directive matches GO_IMAGE; this is independent of the Ruby/OpenVox SDK.
 
-## Version 2 source and artifacts
+## Version 3 source and artifacts
 
-Prepare the 2.1.0 release on release/2.1.0. Keep Unreleased until the separate
+Prepare the 3.0.0 release on release/3.0.0. Keep Unreleased until the separate
 release-finalize preparation commit. The Go module and all internal imports and
--X linker symbols use github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2.
-The GitHub repository/release download URLs do not gain /v2. make build VERSION=v2.1.0
-produces all four platforms, LICENSE and SHA256SUMS under dist/v2.1.0 and verifies
+-X linker symbols use github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3.
+The GitHub repository/release download URLs do not gain /v3. make build VERSION=v3.0.0
+produces all four platforms, LICENSE and SHA256SUMS under dist/v3.0.0 and verifies
 the real linked version/default-image behavior through native smoke.
-Build regressions retain 2.0.0/v2.0.0 coverage alongside stable/dev version syntax.
-Publish pmtool v2.1.0 before updating the team template CI pin for host-prepared
-fixtures; publish that template version before releasing consuming modules.
+Build regressions retain v1/v2 version syntax and cover 3.0.0/v3.0.0 as well.
+Publish pmtool v3.0.0 before updating the team template CI pin for authenticated
+standard Forge fixtures; publish that template version before releasing consumers.
 Keep all published tags immutable.
 
 
@@ -481,3 +481,22 @@ Completion tests exercise Bash/Zsh callbacks with a quoted executable path and
 multiple callback arguments. Native macOS smoke checks must also run the built
 binary with the system Bash 3.2; Linux Bash-only success does not cover its array
 slicing behavior. The callback constructs an explicit argument array.
+
+
+## Standard Forge fixture integration
+
+The Go fixture helper prepares only native Puppet settings and a temporary
+standard manifest; it performs no HTTP/archive installation. The unit phase
+runs standard fixtures:prep by default. The resolve_dependencies opt-in uses
+the SDK parser and native OpenVox resolver with an isolated modulepath. Both
+modes remove installer inputs before spec:standalone and fixtures:clean.
+Docker phases share a temporary dependency mount. Native resolution exposes
+that temporary tree through the expected checkout fixture path. Read credentials are not argv or
+worker env values and are absent from specs. See [fixture lifecycle](FIXTURES.md).
+
+`workflow-check` runs both fixturekit SDK regressions in stock VoxBox. One
+checks the standard puppet_fixtures argv builder and native config parser with
+the install subprocess stubbed. The other uses real OpenVox to resolve a
+versioned dependency chain over a local authenticated HTTPS Forge API.
+Go tests also cover phase planning, credential removal, failure handling,
+preflight and preservation of the original fixture manifest.

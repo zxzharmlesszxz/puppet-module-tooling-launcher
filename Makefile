@@ -113,7 +113,7 @@ build-platform-%: validate-version
 	output="$$DIST/$$build_version"; \
 	mkdir -p "$$output"; \
 	GOOS=$(word 1,$(subst -, ,$*)) GOARCH=$(word 2,$(subst -, ,$*)) go build -trimpath \
-	  -ldflags "-s -w -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/pmtool.version=$$build_version -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/pmtool.defaultImage=$$IMAGE" \
+	  -ldflags "-s -w -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/pmtool.version=$$build_version -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/pmtool.defaultImage=$$IMAGE" \
 	  -o "$$output/pmtool-$$build_version-$*" ./cmd/pmtool
 
 build-native: validate-version $(addprefix build-platform-,$(PLATFORMS))
@@ -603,13 +603,14 @@ pipeline-logs: ## Read source CI logs. REF/RUN_ID select a run; JOB selects a jo
 release-targets-check: ## Test release guards against local Git fixtures and a fake GitHub API.
 
 .PHONY: workflow-check
-workflow-check: checks-image ## Test the Go template engine with real ERB and lint the remaining Ruby assets.
+workflow-check: checks-image ## Test real ERB/Forge SDK integration and lint remaining Ruby assets.
 	@set -eu; \
 	directory="$$(mktemp -d -t pmtool-template-check.XXXXXX)"; \
 	trap 'rm -rf "$$directory"' EXIT; \
-	docker run --rm --network none --read-only --tmpfs /tmp:exec --user "$$(id -u):$$(id -g)" --volume '$(CURDIR):/source:ro' --volume "$$directory:/out" --workdir /source --env HOME=/tmp --env GOCACHE=/tmp/go-cache --env GOPATH=/tmp/go-path --env CGO_ENABLED=0 '$(CHECK_IMAGE)' go test -c -o /out/templatekit.test ./internal/templatekit; \
+	docker run --rm --network none --read-only --tmpfs /tmp:exec --user "$$(id -u):$$(id -g)" --volume '$(CURDIR):/source:ro' --volume "$$directory:/out" --workdir /source --env HOME=/tmp --env GOCACHE=/tmp/go-cache --env GOPATH=/tmp/go-path --env CGO_ENABLED=0 '$(CHECK_IMAGE)' go test -c -o /out/ ./internal/templatekit ./internal/fixturekit; \
 	docker run --rm --network none --read-only --tmpfs /tmp:exec --user "$$(id -u):$$(id -g)" --volume '$(CURDIR):/source:ro' --volume "$$directory:/out:ro" --workdir /source --env HOME=/tmp --env PMTOOL_RUBY_TESTS=1 --entrypoint /out/templatekit.test '$(WORKFLOW_IMAGE)' -test.v; \
-	docker run --rm --network none --read-only --tmpfs /tmp:exec --user "$$(id -u):$$(id -g)" --volume '$(CURDIR):/source:ro' --workdir /source/internal/templatekit --env HOME=/tmp --env BUNDLE_IGNORE_CONFIG=1 --env BUNDLE_GEMFILE=/opt/voxbox/Gemfile --env BUNDLE_PATH=/opt/voxbox/vendor/bundle --entrypoint bundle '$(WORKFLOW_IMAGE)' exec rubocop --config .rubocop.yml --cache false assets
+	docker run --rm --network none --read-only --tmpfs /tmp:exec --user "$$(id -u):$$(id -g)" --volume '$(CURDIR):/source:ro' --volume "$$directory:/out:ro" --workdir /source --env HOME=/tmp --env PMTOOL_FORGE_TESTS=1 --entrypoint /out/fixturekit.test '$(WORKFLOW_IMAGE)' -test.v; \
+	docker run --rm --network none --read-only --tmpfs /tmp:exec --user "$$(id -u):$$(id -g)" --volume '$(CURDIR):/source:ro' --workdir /source/internal/templatekit --env HOME=/tmp --env BUNDLE_IGNORE_CONFIG=1 --env BUNDLE_GEMFILE=/opt/voxbox/Gemfile --env BUNDLE_PATH=/opt/voxbox/vendor/bundle --entrypoint bundle '$(WORKFLOW_IMAGE)' exec rubocop --config .rubocop.yml --cache false assets ../fixturekit/resolve.rb
 
 .PHONY: voxbox-check voxbox-security image-scan-check image-scan-check-native
 image-scan-check: ## Test advisory image findings and fatal scanner errors with a fake Docker CLI.

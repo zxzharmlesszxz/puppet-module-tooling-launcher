@@ -292,13 +292,13 @@ The VoxBox validation step must run validate, lint and rubocop together. Rake va
 alone checks syntax and does not replace the removed PDK lint checks. Preserve this
 exact task set in Docker/native plans and split validation CI jobs.
 
-## Version 2 publication order
+## Version 3 publication order
 
-Prepare launcher v2.1.0 on release/2.1.0; Go imports and linker paths stay on /v2.
+Prepare launcher v3.0.0 on release/3.0.0; Go imports and linker paths use /v3.
 Keep pmtool as the binary name and the existing repository/release base URLs.
 PDK commands/selectors are removed rather than translated through aliases.
-Publish launcher v2.1.0 before updating the team's CI pin for host-prepared
-fixtures and releasing that template.
+Publish launcher v3.0.0 before publishing the team's updated CI template;
+Neon prepares template 2.0.2 for the authenticated Forge-proxy fixture flow.
 Only then update module template.use and run sync/check on module work branches.
 Never move published tags or silently rewrite selectors/configs/Forge artifacts.
 Unreleased notes are finalized only by the separate preparation commit, after
@@ -307,10 +307,11 @@ explicit authorization to commit. Do not commit or push without authorization.
 
 ## Private test fixtures
 
-See [host-prepared test fixtures](FIXTURES.md) for pinned archive dependencies,
-`test_fixtures` in `.sync.yml`, exact-host `FORGE_TOKEN`/`FORGE_TOKEN_HOST`
-authentication, temporary `FIXTURES_YML`, cleanup and the required launcher version.
-Keep credentials out of SDK workers and generated fixture manifests.
+Declare Forge fixtures in `.fixtures.yml` under `forge_modules`. With
+`fixtures.resolve_dependencies: true`, list the direct fixtures and let OpenVox
+install their dependencies from module metadata. Configure `FORGE_URL` and the
+read-only `FORGE_TOKEN` for the same authenticated proxy. pmtool removes the
+private installer config before running RSpec. See [Forge fixtures](FIXTURES.md).
 
 
 ## Template credential helper policy
@@ -344,7 +345,24 @@ manual; named docs include tokens, inputs and fixtures. Bash/Zsh completion must
 remain offline and suggest only flags accepted by the chosen command, including
 document topics and section names. Validate known required inputs before mutations
 or SDK startup, list missing names without their values and stop nonzero. Keep
-optional defaults optional. Private fixtures use auth: forge, public ones omit
-auth and never receive the read token. Preflight does not certify remote scope,
+optional defaults optional. All Forge dependencies belong in standard
+.fixtures.yml forge_modules. The configured proxy uses FORGE_URL/FORGE_TOKEN for
+all dependencies, including cached upstream modules; neither variable means the
+generic public default. Do not restore a second dependency/download schema. Preflight does not certify remote scope,
 expiry, membership or policy; do not bypass server refusals. See TOKENS.md for the
 separate requirements of developers, template fetch, CI jobs and Forge publication.
+
+
+## Standard authenticated Forge dependencies
+
+Preserve the standard Puppet fixture installer and all existing validation gates.
+Read dependencies only from .fixtures.yml, never an inventory in .sync.yml. Supply
+one trusted HTTPS FORGE_URL and a scoped FORGE_TOKEN through a private temporary
+native Puppet config, not argv/URLs or worker env. Run preparation separately,
+remove credentials before specs and stop if preparation/removal fails. Only prep
+may mount the config; spec workers share dependency files without it. Native CI
+uses one SDK job filesystem and is not a sandbox. Publishing still requires a
+separate protected FORGE_PUBLISH_TOKEN. Never reuse the publish token for reads.
+The old published test_fixtures format is removed in v3; reject it explicitly
+rather than silently dropping dependencies. Keep regressions for actual SDK
+fixture parsing/native auth config, both execution modes and failure cleanup.

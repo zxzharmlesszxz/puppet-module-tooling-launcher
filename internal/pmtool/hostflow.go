@@ -12,7 +12,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/hostflow"
 )
 
 var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_./:@%+=,-]+$`)

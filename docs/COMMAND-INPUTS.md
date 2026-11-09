@@ -1,29 +1,29 @@
 # Command inputs
 
-This table describes pmtool v2.1.0. Automatic template-helper lookup and
-host-prepared fixtures require v2.1.0 or later; pmtool v2.0.0 lacks these features.
+This table describes pmtool v3.0.0. All test dependencies use standard
+.fixtures.yml; authenticated proxy installation requires the new launcher.
 Run from the module directory; `--module` is an optional directory override.
 SDK operations require the selected Docker environment or an explicit native SDK,
 but do not require image/tool version environment variables for normal use.
 
-| Commands                                                                     | Required explicit input                                           | Authentication                                                 |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| `help`, `docs`, `version`, `manifest`, `completion`, `ai`, `config`          | Only requested subcommand/output arguments                        | None                                                           |
-| `status`, `diff`, `settings`, `migrate`                                      | None inside the module clone                                      | None                                                           |
-| `template-init`                                                              | `--name`, `--output`; dev binary also needs `--launcher-version`  | None; `--origin` is optional and creates no hosted project     |
-| `module-new`                                                                 | `--name`                                                          | None                                                           |
-| `module-convert`, `module-build`, `template-test`, `release-checks`          | Module/template directory; current directory by default           | None                                                           |
-| `voxbox --stage validate`                                                    | None                                                              | None                                                           |
-| `sync`, `audit`, `check`                                                     | `template.use` in `.sync.yml` or explicit `--template`            | Saved Git helper; optional template token override             |
-| `voxbox --stage unit`, unit phase of `check`                                 | Only if used: pinned `.sync.yml` `test_fixtures`                  | Private `auth: forge` only: `FORGE_TOKEN` + `FORGE_TOKEN_HOST` |
-| `bootstrap-prepare`                                                          | `--branch bootstrap/NAME`                                         | Selected provider token                                        |
-| `release-prepare`                                                            | `--version X.Y.Z`                                                 | Selected provider token                                        |
-| `bootstrap-commit`, `release-commit`                                         | None; version and changed files are inferred                      | Git author/config; no API token                                |
-| `release-submit`, `release-tag`                                              | None; version is read from module metadata                        | Selected provider token + Git author/config                    |
-| `bootstrap-push`, `release-push`, `main-sync`, `mr`, `mr-create`, `mr-merge` | None; branch inferred from current state                          | Selected provider token                                        |
-| `pipeline-jobs`, `pipeline-logs`, `policy`, `policy-delete-master`           | None; ref/provider/project are inferred                           | Selected provider token                                        |
-| `cleanup`                                                                    | `--branch release/X.Y.Z` or the actual completed bootstrap branch | Selected provider token                                        |
-| `forge-publish`                                                              | `FORGE_URL` and built `pkg/OWNER-MODULE-VERSION.tar.gz`           | `FORGE_PUBLISH_TOKEN`; omitted with `--dry-run`                |
+| Commands                                                                     | Required explicit input                                           | Authentication                                                            |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `help`, `docs`, `version`, `manifest`, `completion`, `ai`, `config`          | Only requested subcommand/output arguments                        | None                                                                      |
+| `status`, `diff`, `settings`, `migrate`                                      | None inside the module clone                                      | None                                                                      |
+| `template-init`                                                              | `--name`, `--output`; dev binary also needs `--launcher-version`  | None; `--origin` is optional and creates no hosted project                |
+| `module-new`                                                                 | `--name`                                                          | None                                                                      |
+| `module-convert`, `module-build`, `template-test`, `release-checks`          | Module/template directory; current directory by default           | None                                                                      |
+| `voxbox --stage validate`                                                    | None                                                              | None                                                                      |
+| `sync`, `audit`, `check`                                                     | `template.use` in `.sync.yml` or explicit `--template`            | Saved Git helper; optional template token override                        |
+| `voxbox --stage unit`, unit phase of `check`                                 | Dependency names/versions in `.fixtures.yml` `forge_modules`      | Configured proxy: `FORGE_URL` + `FORGE_TOKEN`; neither for public default |
+| `bootstrap-prepare`                                                          | `--branch bootstrap/NAME`                                         | Selected provider token                                                   |
+| `release-prepare`                                                            | `--version X.Y.Z`                                                 | Selected provider token                                                   |
+| `bootstrap-commit`, `release-commit`                                         | None; version and changed files are inferred                      | Git author/config; no API token                                           |
+| `release-submit`, `release-tag`                                              | None; version is read from module metadata                        | Selected provider token + Git author/config                               |
+| `bootstrap-push`, `release-push`, `main-sync`, `mr`, `mr-create`, `mr-merge` | None; branch inferred from current state                          | Selected provider token                                                   |
+| `pipeline-jobs`, `pipeline-logs`, `policy`, `policy-delete-master`           | None; ref/provider/project are inferred                           | Selected provider token                                                   |
+| `cleanup`                                                                    | `--branch release/X.Y.Z` or the actual completed bootstrap branch | Selected provider token                                                   |
+| `forge-publish`                                                              | `FORGE_URL` and built `pkg/OWNER-MODULE-VERSION.tar.gz`           | `FORGE_PUBLISH_TOKEN`; omitted with `--dry-run`                           |
 
 See [developer and CI token scopes/roles](TOKENS.md) and `pmtool docs tokens`.
 
@@ -40,10 +40,13 @@ Git helper credentials, none of these template variables is required. The team
 GitLab CI setup explicitly maps its authorized CI_JOB_TOKEN to these overrides;
 users do not create a separate CI_JOB_TOKEN for local work.
 
-`FORGE_TOKEN` + `FORGE_TOKEN_HOST` authenticate only private test-fixture reads;
-`FORGE_PUBLISH_TOKEN` authenticates publication and should not be used by tests.
-`FORGE_URL` is the publication service base URL; fixture sources are pinned in
-module `.sync.yml`. Read, template and publish tokens have separate scopes.
+`FORGE_URL` + `FORGE_TOKEN` configure authenticated standard fixture reads for
+all declared Forge modules. The URL may select a proxy that caches upstream
+modules. Neither variable keeps the public default; one alone fails preflight.
+`FORGE_URL` + `FORGE_PUBLISH_TOKEN` configure publication separately.
+Read, template and publish tokens have separate scopes; tests never use the
+publishing token. The read token is supplied through a private preparation config
+and removed before specs, not passed in worker argv/environment.
 
 Optional selectors: `--provider`, `--ci` and `--template` override `.sync.yml`;
 provider otherwise comes from origin and CI defaults to the selected template.

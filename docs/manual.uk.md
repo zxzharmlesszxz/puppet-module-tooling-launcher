@@ -352,7 +352,7 @@ Validation виконує validate, lint і rubocop; unit та release checks з
 виконують sync/check та проходять branch CI перед звичайним релізом.
 Не переміщуйте старі теги й не вибирайте неопублікований шаблон.
 
-Go module/import path має суфікс /v2; executable, назва репозиторію, release URL і
+Поточний Go module/import path має суфікс /v3; executable, назва репозиторію, release URL і
 шлях config.json лишаються чинними. Go toolchain — 1.27.3, runtime — закріплений
 VoxBox з OpenVox 8. Це не перехід на OpenVox 9 і не автоматичне оновлення jig.
 Повна [таблиця заміни команд](manual.md#upgrading-to-20).
@@ -360,11 +360,11 @@ VoxBox з OpenVox 8. Це не перехід на OpenVox 9 і не автом�
 
 ## Приватні тестові залежності
 
-Див. [отримання fixture на хості](FIXTURES.md): `test_fixtures` у `.sync.yml`,
-фіксована версія та SHA256, авторизація `FORGE_TOKEN`/`FORGE_TOKEN_HOST` лише для
-точного хоста. pmtool готує тимчасовий `FIXTURES_YML` перед unit-тестами та
-прибирає завантажені файли після завершення. Токен не передається в SDK.
-Ця можливість потребує нової версії pmtool; опублікована 2.0.0 її ще не має.
+У `.fixtures.yml` → `forge_modules` задаються Forge fixtures. З
+`fixtures.resolve_dependencies: true` достатньо вказати прямі fixtures:
+OpenVox підтягне їхні залежності з метаданих. Єдиний проксі задає `FORGE_URL`,
+читання авторизує `FORGE_TOKEN`. Приватний конфіг видаляється перед RSpec.
+Публікація використовує окремий `FORGE_PUBLISH_TOKEN`. Див. [Forge fixtures](FIXTURES.md).
 
 
 ## Входи команд та авторизація шаблону
@@ -387,3 +387,13 @@ fetch на хості; SDK та audit-скрипти credentials не отрим
 перевизначення не вимагаються. Серверні права перевіряються самим сервером.
 `pmtool help` — короткий usage, `pmtool docs` — повний посібник;
 `pmtool docs --section list` — його зміст. Усі ці запити локальні, без токенів.
+
+
+## Перехід на версію 3
+
+Схему test_fixtures у .sync.yml прибрано: перенесіть модулі та версії у
+.fixtures.yml forge_modules. FORGE_TOKEN_HOST не використовується; потрібні
+FORGE_URL/FORGE_TOKEN для авторизованого проксі. Без обох змінних універсальний
+launcher залишає стандартний публічний Forge, одна змінна без іншої зупиняє
+preflight. Neon CI вимагає обидві для свого unit job. Go module/import paths —
+/v3, назва бінарника та URL релізів незмінні. Старі теги не пересуваємо.
