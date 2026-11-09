@@ -1,4 +1,4 @@
-module github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2
+module github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3
 
 go 1.27.3
 

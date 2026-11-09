@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/hostflow"
 )
 
 const bashCompletion = `_pmtool() {

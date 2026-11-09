@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/fixturekit"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/fixturekit"
 )
 
 func (a *app) executeToolStep(cfg config, o operationOptions, step workflowStep, native bool) (code int) {

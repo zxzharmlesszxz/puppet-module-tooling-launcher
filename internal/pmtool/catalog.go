@@ -7,8 +7,8 @@ import (
 	"io"
 	"strings"
 
-	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/docs"
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/workflow"
+	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/docs"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/workflow"
 )
 
 func launcherManifest() manifest {

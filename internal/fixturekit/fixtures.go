@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/templatekit"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/templatekit"
 	"go.yaml.in/yaml/v3"
 )
 

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/scaffold"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/scaffold"
 )
 
 const templateInitHelp = `Usage: pmtool template-init --name NAME --output NEW_DIRECTORY [--provider gitlab|github|both] [--origin URL]

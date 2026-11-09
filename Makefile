@@ -113,7 +113,7 @@ build-platform-%: validate-version
 	output="$$DIST/$$build_version"; \
 	mkdir -p "$$output"; \
 	GOOS=$(word 1,$(subst -, ,$*)) GOARCH=$(word 2,$(subst -, ,$*)) go build -trimpath \
-	  -ldflags "-s -w -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/pmtool.version=$$build_version -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/pmtool.defaultImage=$$IMAGE" \
+	  -ldflags "-s -w -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/pmtool.version=$$build_version -X github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/pmtool.defaultImage=$$IMAGE" \
 	  -o "$$output/pmtool-$$build_version-$*" ./cmd/pmtool
 
 build-native: validate-version $(addprefix build-platform-,$(PLATFORMS))

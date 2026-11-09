@@ -17,8 +17,8 @@ import (
 	"strings"
 	"syscall"
 
-	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/docs"
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
+	documentation "github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/docs"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/hostflow"
 )
 
 var version = "dev"

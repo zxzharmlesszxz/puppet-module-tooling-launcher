@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/fixturekit"
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/hostflow"
-	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v2/internal/templatekit"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/fixturekit"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/hostflow"
+	"github.com/zxzharmlesszxz/puppet-module-tooling-launcher/v3/internal/templatekit"
 )
 
 func missingInputs(command string, names []string) error {
